@@ -8,7 +8,7 @@
 
 ---
 
-## 💻 Hardware: Mac mini M4 Pro
+## 💻 Hardware: Mac Mini M4 Pro
 - **CPU**: 14-core
 - **GPU**: 20-core
 - **RAM**: 64 GB Unified
