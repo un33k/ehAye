@@ -1,0 +1,95 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+# -------------------------------
+# envy — Setup and activate virtualenv using pyenv
+#
+# Usage:
+#   source ./envy                # Uses default Python version
+#   source ./envy 3.10.8         # Uses specific Python version
+#   source ./envy 3.10.8 -y      # Auto-accept closest match installation
+#
+# Requirements:
+#   - Homebrew (for pyenv installation if needed)
+#   - pyenv (will be installed if missing)
+# -------------------------------
+
+# --- Config ---
+DEFAULT_PYTHON_VERSION="3.11.9"
+VENV_DIR=".venv"
+AUTO_ACCEPT=false
+
+# --- Parse arguments ---
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -y)
+            AUTO_ACCEPT=true
+            shift
+            ;;
+        *)
+            PYTHON_VERSION="$1"
+            shift
+            ;;
+    esac
+done
+
+# Set default version if none provided
+PYTHON_VERSION="${PYTHON_VERSION:-$DEFAULT_PYTHON_VERSION}"
+
+# --- Check and install pyenv if needed ---
+if ! command -v pyenv &> /dev/null; then
+    echo "🔧 pyenv not found. Installing via Homebrew..."
+    if ! command -v brew &> /dev/null; then
+        echo "❌ Homebrew not found. Please install Homebrew first."
+        exit 1
+    fi
+    brew install pyenv
+    echo 'eval "$(pyenv init --path)"' >> ~/.zshrc
+    echo 'eval "$(pyenv init -)"' >> ~/.zshrc
+    eval "$(pyenv init --path)"
+    eval "$(pyenv init -)"
+fi
+
+# --- Input ---
+PYENV_ROOT="$(pyenv root)"
+
+# --- Find or install Python version ---
+INSTALLED_VERSIONS=$(pyenv versions --bare)
+if echo "$INSTALLED_VERSIONS" | grep -q "^$PYTHON_VERSION$"; then
+    echo "✅ Found Python $PYTHON_VERSION in pyenv."
+    CLOSEST_VERSION="$PYTHON_VERSION"
+else
+    echo "🔍 Python $PYTHON_VERSION not found in pyenv. Looking for closest match..."
+    # Get available versions and find closest match
+    AVAILABLE_VERSIONS=$(pyenv install --list | grep -E '^[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+' | tr -d ' ')
+    CLOSEST_VERSION=$(echo "$AVAILABLE_VERSIONS" | grep -E "^$PYTHON_VERSION" | head -n 1)
+    
+    if [ -z "$CLOSEST_VERSION" ]; then
+        echo "❌ No matching Python version found. Installing $PYTHON_VERSION..."
+        pyenv install "$PYTHON_VERSION"
+        CLOSEST_VERSION="$PYTHON_VERSION"
+    elif echo "$INSTALLED_VERSIONS" | grep -q "^$CLOSEST_VERSION$"; then
+        echo "✅ Found closest matching version $CLOSEST_VERSION in pyenv."
+    else
+        if [ "$AUTO_ACCEPT" = false ]; then
+            echo "📦 Found closest matching version: $CLOSEST_VERSION"
+            read -q "?Do you want to install this version? (y/N) " || exit 1
+            echo
+        fi
+        echo "📦 Installing version: $CLOSEST_VERSION"
+        pyenv install "$CLOSEST_VERSION"
+    fi
+fi
+
+# --- Create virtualenv if needed ---
+if [ ! -d "$VENV_DIR" ]; then
+    echo "📦 Creating virtual environment in $VENV_DIR..."
+    # Use the Python from pyenv to create a local venv
+    "$PYENV_ROOT/versions/$CLOSEST_VERSION/bin/python" -m venv "$VENV_DIR"
+else
+    echo "♻️ Virtual environment already exists: $VENV_DIR"
+fi
+
+# --- Activate the virtualenv ---
+source "$VENV_DIR/bin/activate"
+echo "🚀 Activated virtual environment using Python $CLOSEST_VERSION" 
