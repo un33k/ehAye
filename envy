@@ -1,95 +1,317 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env bash
 set -euo pipefail
 
 # -------------------------------
 # envy — Setup and activate virtualenv using pyenv
 #
 # Usage:
-#   source ./envy                # Uses default Python version
-#   source ./envy 3.10.8         # Uses specific Python version
-#   source ./envy 3.10.8 -y      # Auto-accept closest match installation
+#   source ./envy                        # Uses default Python version, pyenv virtualenv
+#   source ./envy 3.10.8                 # Uses specific Python version, pyenv virtualenv
+#   source ./envy 3.10.8 -y              # Auto-accept closest match installation
+#   source ./envy --d ./venv             # Uses local directory instead of pyenv virtualenv
+#   source ./envy 3.10.8 --d ./venv -y   # All options combined
+#   source ./envy --help                 # Show help
 #
 # Requirements:
-#   - Homebrew (for pyenv installation if needed)
+#   - Homebrew (for pyenv installation if needed on macOS)
 #   - pyenv (will be installed if missing)
 # -------------------------------
 
 # --- Config ---
 DEFAULT_PYTHON_VERSION="3.11.9"
-VENV_DIR=".venv"
+VENV_DIR=""
+USE_LOCAL_VENV=false
 AUTO_ACCEPT=false
+SHOW_HELP=false
+
+# --- Functions ---
+show_help() {
+    cat << EOF
+envy — Setup and activate virtualenv using pyenv
+
+USAGE:
+    source ./envy [VERSION] [OPTIONS]
+
+ARGUMENTS:
+    VERSION     Python version to use (default: $DEFAULT_PYTHON_VERSION)
+
+OPTIONS:
+    --d DIR     Use local directory for virtualenv instead of pyenv virtualenv
+    -y          Auto-accept closest match installation
+    --help      Show this help message
+
+EXAMPLES:
+    source ./envy                        # Default version, pyenv virtualenv
+    source ./envy 3.10.8                 # Specific version, pyenv virtualenv  
+    source ./envy --d ./venv             # Default version, local directory
+    source ./envy 3.10.8 --d ./venv -y   # All options combined
+
+EOF
+}
+
+# Detect shell for better compatibility
+detect_shell() {
+    if [ -n "${ZSH_VERSION:-}" ]; then
+        echo "zsh"
+    elif [ -n "${BASH_VERSION:-}" ]; then
+        echo "bash"
+    else
+        echo "unknown"
+    fi
+}
+
+SHELL_TYPE=$(detect_shell)
 
 # --- Parse arguments ---
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --help|-h)
+            SHOW_HELP=true
+            shift
+            ;;
+        --d)
+            if [[ $# -lt 2 ]]; then
+                echo "❌ Error: --d requires a directory argument"
+                return 1 2>/dev/null || exit 1
+            fi
+            VENV_DIR="$2"
+            USE_LOCAL_VENV=true
+            shift 2
+            ;;
         -y)
             AUTO_ACCEPT=true
             shift
             ;;
+        -*)
+            echo "❌ Error: Unknown option $1"
+            echo "Use --help for usage information"
+            return 1 2>/dev/null || exit 1
+            ;;
         *)
+            # Validate Python version format
+            if [[ ! "$1" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+                echo "❌ Error: Invalid Python version format: $1"
+                echo "Expected format: X.Y or X.Y.Z (e.g., 3.11 or 3.11.9)"
+                return 1 2>/dev/null || exit 1
+            fi
             PYTHON_VERSION="$1"
             shift
             ;;
     esac
 done
 
+# Show help if requested
+if [ "$SHOW_HELP" = true ]; then
+    show_help
+    return 0 2>/dev/null || exit 0
+fi
+
 # Set default version if none provided
 PYTHON_VERSION="${PYTHON_VERSION:-$DEFAULT_PYTHON_VERSION}"
 
 # --- Check and install pyenv if needed ---
-if ! command -v pyenv &> /dev/null; then
-    echo "🔧 pyenv not found. Installing via Homebrew..."
-    if ! command -v brew &> /dev/null; then
-        echo "❌ Homebrew not found. Please install Homebrew first."
-        exit 1
+install_pyenv() {
+    echo "🔧 pyenv not found. Installing..."
+    
+    # Detect OS and install accordingly
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        if ! command -v brew &> /dev/null; then
+            echo "❌ Homebrew not found. Please install Homebrew first:"
+            echo "   /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+            return 1 2>/dev/null || exit 1
+        fi
+        brew install pyenv pyenv-virtualenv
+        
+        # Add to appropriate shell config
+        if [ "$SHELL_TYPE" = "zsh" ]; then
+            SHELL_CONFIG="$HOME/.zshrc"
+        else
+            SHELL_CONFIG="$HOME/.bashrc"
+        fi
+        
+        echo 'export PYENV_ROOT="$HOME/.pyenv"' >> "$SHELL_CONFIG"
+        echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> "$SHELL_CONFIG"
+        echo 'eval "$(pyenv init -)"' >> "$SHELL_CONFIG"
+        echo 'eval "$(pyenv virtualenv-init -)"' >> "$SHELL_CONFIG"
+        
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux
+        echo "📦 Installing pyenv dependencies..."
+        if command -v apt &> /dev/null; then
+            sudo apt update
+            sudo apt install -y make build-essential libssl-dev zlib1g-dev \
+                libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
+                libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev \
+                libffi-dev liblzma-dev
+        elif command -v yum &> /dev/null; then
+            sudo yum groupinstall -y "Development Tools"
+            sudo yum install -y gcc openssl-devel bzip2-devel libffi-devel \
+                zlib-devel readline-devel sqlite-devel
+        elif command -v pacman &> /dev/null; then
+            sudo pacman -S --needed base-devel openssl zlib xz tk
+        fi
+        
+        # Install pyenv via git
+        curl https://pyenv.run | bash
+        
+        # Install pyenv-virtualenv
+        git clone https://github.com/pyenv/pyenv-virtualenv.git "$(pyenv root)"/plugins/pyenv-virtualenv
+        
+        # Add to shell config
+        if [ "$SHELL_TYPE" = "zsh" ]; then
+            SHELL_CONFIG="$HOME/.zshrc"
+        else
+            SHELL_CONFIG="$HOME/.bashrc"
+        fi
+        
+        echo 'export PYENV_ROOT="$HOME/.pyenv"' >> "$SHELL_CONFIG"
+        echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> "$SHELL_CONFIG"
+        echo 'eval "$(pyenv init -)"' >> "$SHELL_CONFIG"
+        echo 'eval "$(pyenv virtualenv-init -)"' >> "$SHELL_CONFIG"
     fi
-    brew install pyenv
-    echo 'eval "$(pyenv init --path)"' >> ~/.zshrc
-    echo 'eval "$(pyenv init -)"' >> ~/.zshrc
-    eval "$(pyenv init --path)"
+    
+    # Initialize pyenv for current session
+    export PYENV_ROOT="$HOME/.pyenv"
+    command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
     eval "$(pyenv init -)"
+    
+    # Initialize pyenv-virtualenv if available
+    if [ -d "$PYENV_ROOT/plugins/pyenv-virtualenv" ]; then
+        eval "$(pyenv virtualenv-init -)"
+    fi
+}
+
+# --- Setup pyenv ---
+if ! command -v pyenv &> /dev/null; then
+    install_pyenv
 fi
 
-# --- Input ---
-PYENV_ROOT="$(pyenv root)"
+# Initialize pyenv and pyenv-virtualenv for current session
+export PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+
+# Check for and initialize pyenv-virtualenv
+PYENV_VIRTUALENV_AVAILABLE=false
+if [ -d "$PYENV_ROOT/plugins/pyenv-virtualenv" ] || command -v pyenv-virtualenv &> /dev/null; then
+    eval "$(pyenv virtualenv-init -)"
+    PYENV_VIRTUALENV_AVAILABLE=true
+    echo "✅ pyenv-virtualenv is available"
+else
+    echo "⚠️  pyenv-virtualenv not found. Will use standard venv instead."
+fi
 
 # --- Find or install Python version ---
-INSTALLED_VERSIONS=$(pyenv versions --bare)
+echo "🔍 Checking for Python $PYTHON_VERSION..."
+
+# Get installed versions with error handling
+if ! INSTALLED_VERSIONS=$(pyenv versions --bare 2>/dev/null); then
+    echo "❌ Error: Failed to get pyenv versions list"
+    return 1 2>/dev/null || exit 1
+fi
+
 if echo "$INSTALLED_VERSIONS" | grep -q "^$PYTHON_VERSION$"; then
     echo "✅ Found Python $PYTHON_VERSION in pyenv."
     CLOSEST_VERSION="$PYTHON_VERSION"
 else
     echo "🔍 Python $PYTHON_VERSION not found in pyenv. Looking for closest match..."
-    # Get available versions and find closest match
-    AVAILABLE_VERSIONS=$(pyenv install --list | grep -E '^[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+' | tr -d ' ')
+    
+    # Get available versions with error handling
+    if ! AVAILABLE_VERSIONS=$(pyenv install --list 2>/dev/null | grep -E '^[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+' | tr -d ' '); then
+        echo "❌ Error: Failed to get available Python versions"
+        return 1 2>/dev/null || exit 1
+    fi
+    
     CLOSEST_VERSION=$(echo "$AVAILABLE_VERSIONS" | grep -E "^$PYTHON_VERSION" | head -n 1)
     
     if [ -z "$CLOSEST_VERSION" ]; then
-        echo "❌ No matching Python version found. Installing $PYTHON_VERSION..."
-        pyenv install "$PYTHON_VERSION"
-        CLOSEST_VERSION="$PYTHON_VERSION"
+        echo "❌ No matching Python version found for $PYTHON_VERSION"
+        echo "   Available versions:"
+        echo "$AVAILABLE_VERSIONS" | grep -E "^$(echo "$PYTHON_VERSION" | cut -d. -f1-2)" | head -5
+        return 1 2>/dev/null || exit 1
     elif echo "$INSTALLED_VERSIONS" | grep -q "^$CLOSEST_VERSION$"; then
         echo "✅ Found closest matching version $CLOSEST_VERSION in pyenv."
     else
         if [ "$AUTO_ACCEPT" = false ]; then
             echo "📦 Found closest matching version: $CLOSEST_VERSION"
-            read -q "?Do you want to install this version? (y/N) " || exit 1
-            echo
+            if [ "$SHELL_TYPE" = "zsh" ]; then
+                read -q "?Do you want to install this version? (y/N) " || return 1 2>/dev/null || exit 1
+            else
+                read -p "Do you want to install this version? (y/N) " -n 1 -r
+                echo
+                [[ ! $REPLY =~ ^[Yy]$ ]] && return 1 2>/dev/null || exit 1
+            fi
         fi
         echo "📦 Installing version: $CLOSEST_VERSION"
-        pyenv install "$CLOSEST_VERSION"
+        if ! pyenv install "$CLOSEST_VERSION"; then
+            echo "❌ Error: Failed to install Python $CLOSEST_VERSION"
+            return 1 2>/dev/null || exit 1
+        fi
     fi
 fi
 
-# --- Create virtualenv if needed ---
-if [ ! -d "$VENV_DIR" ]; then
-    echo "📦 Creating virtual environment in $VENV_DIR..."
-    # Use the Python from pyenv to create a local venv
-    "$PYENV_ROOT/versions/$CLOSEST_VERSION/bin/python" -m venv "$VENV_DIR"
+# --- Create and activate virtualenv ---
+if [ "$USE_LOCAL_VENV" = true ]; then
+    # Use local directory
+    if [ ! -d "$VENV_DIR" ]; then
+        echo "📦 Creating virtual environment in $VENV_DIR..."
+        "$PYENV_ROOT/versions/$CLOSEST_VERSION/bin/python" -m venv "$VENV_DIR"
+    else
+        echo "♻️ Virtual environment already exists: $VENV_DIR"
+    fi
+    
+    # Activate the local virtualenv
+    source "$VENV_DIR/bin/activate"
+    echo "🚀 Activated local virtual environment ($VENV_DIR) using Python $CLOSEST_VERSION"
 else
-    echo "♻️ Virtual environment already exists: $VENV_DIR"
-fi
-
-# --- Activate the virtualenv ---
-source "$VENV_DIR/bin/activate"
-echo "🚀 Activated virtual environment using Python $CLOSEST_VERSION" 
+    # Use pyenv virtualenv (default behavior) or fallback to standard venv
+    PROJECT_NAME=$(basename "$(pwd)")
+    VENV_NAME="${PROJECT_NAME}-${CLOSEST_VERSION}"
+    
+    if [ "$PYENV_VIRTUALENV_AVAILABLE" = true ]; then
+        # Try using pyenv virtualenv
+        echo "🔄 Attempting to use pyenv virtualenv..."
+        
+        # Check if pyenv virtualenv already exists
+        if pyenv versions --bare | grep -q "^$VENV_NAME$"; then
+            echo "♻️ pyenv virtualenv already exists: $VENV_NAME"
+        else
+            echo "📦 Creating pyenv virtualenv: $VENV_NAME"
+            if ! pyenv virtualenv "$CLOSEST_VERSION" "$VENV_NAME"; then
+                echo "❌ Failed to create pyenv virtualenv. Falling back to standard venv."
+                PYENV_VIRTUALENV_AVAILABLE=false
+            fi
+        fi
+        
+        # Try to activate pyenv virtualenv
+        if [ "$PYENV_VIRTUALENV_AVAILABLE" = true ]; then
+            if pyenv activate "$VENV_NAME" 2>/dev/null; then
+                echo "🚀 Activated pyenv virtualenv ($VENV_NAME) using Python $CLOSEST_VERSION"
+                # Set local Python version for this directory
+                echo "$VENV_NAME" > .python-version
+                echo "📌 Set local Python version to: $VENV_NAME"
+            else
+                echo "❌ Failed to activate pyenv virtualenv. Falling back to standard venv."
+                PYENV_VIRTUALENV_AVAILABLE=false
+            fi
+        fi
+    fi
+    
+    # Fallback to standard venv if pyenv-virtualenv failed or unavailable
+    if [ "$PYENV_VIRTUALENV_AVAILABLE" = false ]; then
+        echo "🔄 Using standard venv as fallback..."
+        FALLBACK_VENV_DIR=".venv"
+        
+        if [ ! -d "$FALLBACK_VENV_DIR" ]; then
+            echo "📦 Creating standard virtual environment in $FALLBACK_VENV_DIR..."
+            "$PYENV_ROOT/versions/$CLOSEST_VERSION/bin/python" -m venv "$FALLBACK_VENV_DIR"
+        else
+            echo "♻️ Standard virtual environment already exists: $FALLBACK_VENV_DIR"
+        fi
+        
+        # Activate the standard virtualenv
+        source "$FALLBACK_VENV_DIR/bin/activate"
+        echo "🚀 Activated standard virtual environment ($FALLBACK_VENV_DIR) using Python $CLOSEST_VERSION"
+    fi
+fi 
