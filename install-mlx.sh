@@ -52,7 +52,7 @@ Post-installation:
     4. Download models: ./install-llm.sh setup
     5. Start chatting: python chat.py
 EOF
-    exit 0
+    return 0 2>/dev/null || exit 0
 fi
 
 echo "🚀 Setting up MLX for optimal LLM performance on macOS..."

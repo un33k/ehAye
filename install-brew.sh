@@ -143,7 +143,7 @@ main() {
     # Handle help flag
     if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
         show_help
-        exit 0
+        return 0 2>/dev/null || exit 0
     fi
     
     echo "🍎 Homebrew Setup for macOS"

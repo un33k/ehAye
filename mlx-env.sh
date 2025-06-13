@@ -41,7 +41,7 @@ EOF
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
         show_mlx_env_help
-        exit 0
+        return 0 2>/dev/null || exit 0
     fi
     echo "⚠️  This script should be sourced, not executed directly."
     echo "   Run: source mlx-env.sh"
@@ -137,14 +137,4 @@ mlx_monitor() {
 
 echo "🔥 MLX advanced environment loaded for M4"
 echo "💡 Run 'mlx_status' to see current configuration"
-echo "📊 Run 'mlx_monitor' to monitor performance"export MLX_PRELOAD_MODELS=1
-export MLX_PRELOAD_MODELS=1
-export MLX_PRELOAD_MODELS=1
-export MLX_PRELOAD_MODELS=1
-export MLX_PRELOAD_MODELS=1
-export MLX_PRELOAD_MODELS=1
-export MLX_PRELOAD_MODELS=1
-export MLX_PRELOAD_MODELS=1
-export MLX_PRELOAD_MODELS=1
-export MLX_PRELOAD_MODELS=1
-export MLX_PRELOAD_MODELS=1
+echo "📊 Run 'mlx_monitor' to monitor performance"
