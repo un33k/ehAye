@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""
+Simple MLX Chat Interface
+Usage: python chat.py [--model MODEL] [--max-tokens N] [--temp T]
+"""
+
+import argparse
+import time
+import os
+import sys
+
+# Check if running in correct virtual environment
+def check_virtual_env():
+    """Ensure we're running in the correct virtual environment"""
+    import subprocess
+    
+    # Check if in any virtual environment
+    if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
+        if 'VIRTUAL_ENV' not in os.environ and 'CONDA_DEFAULT_ENV' not in os.environ:
+            print("❌ Error: Not running in a virtual environment!")
+            print("🔒 For safety, this script requires a virtual environment.")
+            print("")
+            print("💡 To fix this:")
+            print("   1. Run: source .venv/bin/activate") 
+            print("   2. Or run: ./install-venv.sh")
+            print("   3. Then run this script again")
+            sys.exit(1)
+    
+    # Check if using the correct Python executable
+    try:
+        current_python = subprocess.check_output(['which', 'python'], text=True).strip()
+        expected_python = os.path.abspath('.venv/bin/python')
+        
+        if current_python != expected_python:
+            print("❌ Error: Not using the correct virtual environment!")
+            print(f"🔍 Current Python: {current_python}")
+            print(f"🎯 Expected Python: {expected_python}")
+            print("")
+            print("💡 To fix this:")
+            print("   1. Run: source .venv/bin/activate")
+            print("   2. Verify with: which python")
+            print("   3. Then run this script again")
+            sys.exit(1)
+            
+    except subprocess.CalledProcessError:
+        print("❌ Error: Cannot determine Python path")
+        sys.exit(1)
+
+# Check virtual environment at startup
+check_virtual_env()
+
+from mlx_lm import load, generate
+
+def get_default_model():
+    """Get a reasonable default model based on available models"""
+    # Check for common models in order of preference
+    candidate_models = [
+        "mlx-community/Mistral-7B-Instruct-v0.1-4bit-mlx",
+        "mlx-community/phi-2-MLX",
+        "mlx-community/CodeLlama-7b-Instruct-hf-4bit-mlx",
+        "mlx-community/Llama-2-7b-chat-hf-4bit-mlx"
+    ]
+    
+    return candidate_models[0]  # Default to Mistral
+
+def format_chat_prompt(message, model_name=""):
+    """Format the prompt based on the model type"""
+    if "mistral" in model_name.lower():
+        return f"<s>[INST] {message} [/INST]"
+    elif "llama" in model_name.lower():
+        return f"### Human: {message}\n### Assistant:"
+    elif "phi" in model_name.lower():
+        return f"Human: {message}\nAssistant:"
+    else:
+        return message
+
+def print_model_info(model_name):
+    """Print information about the loaded model"""
+    print(f"🤖 Model: {model_name}")
+    
+    # Estimate model size and type
+    if "phi-2" in model_name.lower():
+        print("   📏 Size: ~2.7B parameters (2.8GB)")
+        print("   🎯 Best for: Quick responses, testing")
+    elif "7b" in model_name.lower():
+        print("   📏 Size: ~7B parameters (4-7GB)")
+        print("   🎯 Best for: General chat, coding")
+    elif "13b" in model_name.lower():
+        print("   📏 Size: ~13B parameters (7-13GB)")
+        print("   🎯 Best for: High quality responses")
+    elif "mixtral" in model_name.lower():
+        print("   📏 Size: ~46.7B parameters (26GB)")
+        print("   🎯 Best for: Expert-level responses")
+
+def show_help():
+    """Show available commands during chat"""
+    print("""
+💡 Available commands:
+   quit, exit, q    - Exit the chat
+   clear           - Clear the screen
+   help            - Show this help
+   stats           - Show memory usage
+   temp <value>    - Change temperature (0.1-2.0)
+   tokens <value>  - Change max tokens (1-2048)
+   model           - Show current model info
+   """)
+
+def show_stats():
+    """Show current memory and performance stats"""
+    try:
+        import psutil
+        process = psutil.Process()
+        memory_mb = process.memory_info().rss / (1024**2)
+        
+        print(f"📊 Memory usage: {memory_mb:.1f}MB")
+        print(f"🧠 Available memory: {psutil.virtual_memory().available / (1024**3):.1f}GB")
+        
+        # GPU memory if available
+        try:
+            import subprocess
+            result = subprocess.run(['sysctl', '-n', 'iogpu.wired_limit_mb'], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                gpu_mb = int(result.stdout.strip())
+                print(f"🎮 GPU memory limit: {gpu_mb}MB")
+        except:
+            pass
+            
+    except ImportError:
+        print("📊 Stats require psutil package")
+
+def main():
+    parser = argparse.ArgumentParser(description="MLX Chat Interface")
+    parser.add_argument("--model", default=get_default_model(), 
+                       help="Model to use")
+    parser.add_argument("--max-tokens", type=int, default=512,
+                       help="Maximum tokens to generate")
+    parser.add_argument("--temp", type=float, default=0.7,
+                       help="Temperature for generation")
+    parser.add_argument("--system", default="",
+                       help="System prompt (optional)")
+    
+    args = parser.parse_args()
+    
+    # Validate parameters
+    if args.temp < 0.1 or args.temp > 2.0:
+        print("⚠️  Temperature should be between 0.1 and 2.0")
+        args.temp = max(0.1, min(2.0, args.temp))
+    
+    if args.max_tokens < 1 or args.max_tokens > 4096:
+        print("⚠️  Max tokens should be between 1 and 4096")
+        args.max_tokens = max(1, min(4096, args.max_tokens))
+    
+    print(f"🔥 Loading model: {args.model}")
+    print("   This may take a moment...")
+    
+    try:
+        start_time = time.time()
+        model, tokenizer = load(args.model)
+        load_time = time.time() - start_time
+        print(f"✅ Model loaded in {load_time:.2f}s")
+    except Exception as e:
+        print(f"❌ Failed to load model: {e}")
+        print("\n💡 Try one of these models:")
+        for model in [
+            "mlx-community/phi-2-MLX",
+            "mlx-community/Mistral-7B-Instruct-v0.1-4bit-mlx",
+            "mlx-community/CodeLlama-7b-Instruct-hf-4bit-mlx"
+        ]:
+            print(f"   {model}")
+        return 1
+    
+    print_model_info(args.model)
+    
+    print(f"\n💬 MLX Chat Session")
+    print(f"⚙️  Settings: temp={args.temp}, max_tokens={args.max_tokens}")
+    print("💡 Type 'help' for commands, 'quit' to exit")
+    print("-" * 60)
+    
+    # Add system prompt if provided
+    conversation_history = []
+    if args.system:
+        conversation_history.append(f"System: {args.system}")
+        print(f"🎯 System prompt: {args.system}")
+    
+    while True:
+        try:
+            user_input = input("\n🧑 You: ").strip()
+            
+            if user_input.lower() in ['quit', 'exit', 'q']:
+                print("👋 Goodbye!")
+                break
+            elif user_input.lower() == 'clear':
+                os.system('clear' if os.name != 'nt' else 'cls')
+                continue
+            elif user_input.lower() == 'help':
+                show_help()
+                continue
+            elif user_input.lower() == 'stats':
+                show_stats()
+                continue
+            elif user_input.lower() == 'model':
+                print_model_info(args.model)
+                continue
+            elif user_input.lower().startswith('temp '):
+                try:
+                    new_temp = float(user_input.split()[1])
+                    if 0.1 <= new_temp <= 2.0:
+                        args.temp = new_temp
+                        print(f"🌡️  Temperature set to {args.temp}")
+                    else:
+                        print("⚠️  Temperature must be between 0.1 and 2.0")
+                except (ValueError, IndexError):
+                    print("⚠️  Usage: temp <value>")
+                continue
+            elif user_input.lower().startswith('tokens '):
+                try:
+                    new_tokens = int(user_input.split()[1])
+                    if 1 <= new_tokens <= 4096:
+                        args.max_tokens = new_tokens
+                        print(f"🎯 Max tokens set to {args.max_tokens}")
+                    else:
+                        print("⚠️  Max tokens must be between 1 and 4096")
+                except (ValueError, IndexError):
+                    print("⚠️  Usage: tokens <value>")
+                continue
+            elif not user_input:
+                continue
+            
+            # Format prompt based on model
+            formatted_prompt = format_chat_prompt(user_input, args.model)
+            
+            print("🤖 Assistant: ", end="", flush=True)
+            
+            # Generate response with timing
+            start_time = time.time()
+            try:
+                response = generate(
+                    model, tokenizer, 
+                    prompt=formatted_prompt,
+                    max_tokens=args.max_tokens,
+                    temp=args.temp,
+                    verbose=False
+                )
+                
+                generation_time = time.time() - start_time
+                
+                # Clean up response formatting
+                if formatted_prompt in response:
+                    response = response.replace(formatted_prompt, "").strip()
+                
+                print(response)
+                
+                # Show generation stats
+                words = len(response.split())
+                tokens_estimated = len(response.split()) * 1.3  # Rough estimate
+                tokens_per_sec = tokens_estimated / generation_time if generation_time > 0 else 0
+                
+                print(f"\n⚡ Generated {words} words in {generation_time:.2f}s ({tokens_per_sec:.1f} tokens/sec)")
+                
+            except Exception as e:
+                print(f"❌ Generation error: {e}")
+                
+        except KeyboardInterrupt:
+            print("\n👋 Goodbye!")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
+
+if __name__ == "__main__":
+    exit(main())
