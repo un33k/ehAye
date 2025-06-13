@@ -15,16 +15,21 @@ if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "help"
 Commands:
     setup               Setup model directories and download models
     list                List installed models
+    -l                  Short for list
     search [PATTERN]    Search available models (e.g., mistral, llama, phi)
-    download <MODEL>    Download a specific model by name
+    -s [PATTERN]        Short for search
+    download <MODEL>    Download a specific model by name or number from search
+    -d <MODEL|ID>       Short for download (use model key or number from search)
     cleanup             Clean up cached models
     help                Show this help message
 
 Examples:
     ./install-llm.sh setup             # Initial setup and model download
-    ./install-llm.sh list              # Show installed models
-    ./install-llm.sh search mistral    # Search for Mistral models
-    ./install-llm.sh download mistral-7b # Download Mistral 7B model
+    ./install-llm.sh -l                # Show installed models
+    ./install-llm.sh -s mistral        # Search for Mistral models
+    ./install-llm.sh -d mistral-7b     # Download Mistral 7B model
+    ./install-llm.sh -s deepseek       # Search DeepSeek models
+    ./install-llm.sh -d 2              # Download model #2 from last search
     ./install-llm.sh search            # List all available models
     ./install-llm.sh cleanup           # Clean up cache
 
@@ -71,17 +76,25 @@ echo "✅ Correct virtual environment detected: $CURRENT_PYTHON"
 MEM_TOTAL_GB=$(sysctl -n hw.memsize | awk '{print int($1/1024/1024/1024)}')
 echo "📊 System memory: ${MEM_TOTAL_GB}GB"
 
+# --- Global Variables ---
+# Store last search results for numbered downloads
+LAST_SEARCH_RESULTS_FILE="/tmp/mlx_last_search_results.txt"
+
 # --- Model Database ---
 # Comprehensive list of available MLX models
 get_model_info() {
     local key="$1"
     case "$key" in
-        # Small Models (< 3B parameters)
+        # Tiny Models (< 2B parameters)
+        "llama-3.2-1b") echo "mlx-community/Llama-3.2-1B-Instruct-4bit:tiny:1B:Meta Llama 3.2 1B - Ultra lightweight" ;;
+        "deepseek-1.3b") echo "mlx-community/deepseek-coder-1.3b-base-mlx:tiny:1.3B:DeepSeek Coder 1.3B - Base code model" ;;
+        
+        # Small Models (2B-3B parameters)
         "phi-2") echo "mlx-community/phi-2:small:2.7B:Microsoft Phi-2 - Fast and capable" ;;
-        "llama-3.2-1b") echo "mlx-community/Llama-3.2-1B-Instruct-4bit:small:1B:Meta Llama 3.2 1B - Ultra lightweight" ;;
-        "llama-3.2-3b") echo "mlx-community/Llama-3.2-3B-Instruct-4bit:small:3B:Meta Llama 3.2 3B - Compact but capable" ;;
         "deepseek-coder-lite") echo "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit-mlx:small:2.46B:DeepSeek Coder V2 Lite - Latest code model" ;;
-        "deepseek-1.3b") echo "mlx-community/deepseek-coder-1.3b-base-mlx:small:1.3B:DeepSeek Coder 1.3B - Base code model" ;;
+        "llama-3.2-3b") echo "mlx-community/Llama-3.2-3B-Instruct-4bit:small:3B:Meta Llama 3.2 3B - Compact but capable" ;;
+        "deepseek-math-7b") echo "mlx-community/deepseek-math-7b-instruct:small:7B:DeepSeek Math 7B - Mathematical reasoning" ;;
+        "deepseek-coder-6.7b") echo "mlx-community/deepseek-coder-6.7b-instruct-4bit:small:6.7B:DeepSeek Coder 6.7B - Code generation" ;;
         
         # Medium Models (3B-8B parameters)
         "qwen2.5-7b") echo "mlx-community/Qwen2.5-7B-Instruct-4bit:medium:7B:Qwen 2.5 7B - High quality instruction model" ;;
@@ -95,13 +108,27 @@ get_model_info() {
         "qwen2.5-72b") echo "mlx-community/Qwen2.5-72B-Instruct-4bit:large:72B:Qwen 2.5 72B - Largest Qwen model" ;;
         "command-r-plus") echo "mlx-community/c4ai-command-r-plus-08-2024-4bit:large:35B:Command R Plus - Aug 2024" ;;
         "deepseek-r1") echo "mlx-community/DeepSeek-R1-3bit:large:67B:DeepSeek R1 - Latest reasoning model" ;;
+        "deepseek-coder-33b") echo "mlx-community/deepseek-coder-33b-instruct-4bit:large:33B:DeepSeek Coder 33B - Large code model" ;;
+        "deepseek-v3") echo "mlx-community/DeepSeek-V3-4bit:large:685B:DeepSeek V3 - Massive reasoning model" ;;
         *) echo "" ;;
     esac
 }
 
 # Get all model keys
 get_all_model_keys() {
-    echo "phi-2 llama-3.2-1b llama-3.2-3b deepseek-coder-lite deepseek-1.3b qwen2.5-7b command-r-7b gemma-2-9b mistral-small llama-3.2-11b-vision qwen2.5-32b qwen2.5-72b command-r-plus deepseek-r1"
+    echo "llama-3.2-1b deepseek-1.3b phi-2 deepseek-coder-lite llama-3.2-3b deepseek-math-7b deepseek-coder-6.7b qwen2.5-7b command-r-7b gemma-2-9b mistral-small llama-3.2-11b-vision qwen2.5-32b qwen2.5-72b command-r-plus deepseek-r1 deepseek-coder-33b deepseek-v3"
+}
+
+# Function to get category emoji
+get_category_emoji() {
+    case "$1" in
+        "tiny") echo "🔵" ;;
+        "small") echo "🟢" ;;
+        "medium") echo "🟡" ;;
+        "large") echo "🔴" ;;
+        "code") echo "💻" ;;
+        *) echo "📦" ;;
+    esac
 }
 
 # --- Model Search Function ---
@@ -116,16 +143,6 @@ search_models() {
         echo ""
     fi
     
-    # Function to get category emoji
-    get_category_emoji() {
-        case "$1" in
-            "small") echo "🟢" ;;
-            "medium") echo "🟡" ;;
-            "large") echo "🔴" ;;
-            "code") echo "💻" ;;
-            *) echo "📦" ;;
-        esac
-    }
     
     # Function to format size for sorting
     size_sort_key() {
@@ -186,7 +203,8 @@ search_models() {
             [[ -n "$current_category" ]] && echo ""
             local emoji=$(get_category_emoji "$category")
             case "$category" in
-                "small") echo "$emoji Small Models (< 3B parameters):" ;;
+                "tiny") echo "$emoji Tiny Models (< 2B parameters):" ;;
+                "small") echo "$emoji Small Models (2B-3B parameters):" ;;
                 "medium") echo "$emoji Medium Models (3B-8B parameters):" ;;
                 "large") echo "$emoji Large Models (> 8B parameters):" ;;
                 "code") echo "$emoji Code Models (specialized for programming):" ;;
@@ -202,26 +220,60 @@ search_models() {
     echo ""
     echo "📊 Found ${#found_models[@]} model(s)"
     
+    # Save search results for numbered downloads
+    > "$LAST_SEARCH_RESULTS_FILE"  # Clear file
+    for model_entry in "${found_models[@]}"; do
+        IFS='|' read -r cat size_key model_key model_info <<< "$model_entry"
+        echo "$model_key" >> "$LAST_SEARCH_RESULTS_FILE"
+    done
+    
     if [[ -n "$search_pattern" ]]; then
         echo ""
         echo "💡 To download a model:"
-        echo "   ./install-llm.sh download <model-key>"
-        echo "   Example: ./install-llm.sh download mistral-7b"
+        echo "   ./install-llm.sh download <model-key>  # By name"
+        echo "   ./install-llm.sh -d <model-key>       # Short form"
+        echo "   ./install-llm.sh -d <number>          # By number from search"
+        echo "   Example: ./install-llm.sh -d 1        # Download first result"
     fi
 }
 
 # --- Download Specific Model ---
 download_model_by_key() {
-    local model_key="${1:-}"
+    local model_input="${1:-}"
+    local model_key="$model_input"
     
-    if [[ -z "$model_key" ]]; then
-        echo "❌ Error: Model name is required"
+    if [[ -z "$model_input" ]]; then
+        echo "❌ Error: Model name or number is required"
         echo "💡 Usage: ./install-llm.sh download <model-key>"
+        echo "         ./install-llm.sh -d <model-key>"
+        echo "         ./install-llm.sh -d <number>  # From search results"
         echo ""
         echo "🔍 To find available models:"
         echo "   ./install-llm.sh search"
-        echo "   ./install-llm.sh search mistral"
+        echo "   ./install-llm.sh -s mistral"
         return 1
+    fi
+    
+    # Check if input is a number (referring to search results)
+    if [[ "$model_input" =~ ^[0-9]+$ ]]; then
+        if [[ ! -f "$LAST_SEARCH_RESULTS_FILE" ]]; then
+            echo "❌ Error: No previous search results found"
+            echo "💡 Run a search first: ./install-llm.sh -s <pattern>"
+            return 1
+        fi
+        
+        # Get model key from search results by line number
+        model_key=$(sed -n "${model_input}p" "$LAST_SEARCH_RESULTS_FILE")
+        
+        if [[ -z "$model_key" ]]; then
+            local total_results=$(wc -l < "$LAST_SEARCH_RESULTS_FILE" 2>/dev/null || echo "0")
+            echo "❌ Error: Invalid model number '$model_input'"
+            echo "💡 Available numbers: 1-$total_results"
+            echo "   Run: ./install-llm.sh -s <pattern> to see models"
+            return 1
+        fi
+        
+        echo "🎯 Selected model #$model_input: $model_key"
     fi
     
     # Set up cache directories
@@ -230,7 +282,7 @@ download_model_by_key() {
     export MLX_MODELS_DIR="$HOME/.mlx-cache/models"
     
     # Create directories if they don't exist
-    mkdir -p "$MLX_MODELS_DIR"/{small,medium,large,code}
+    mkdir -p "$MLX_MODELS_DIR"/{tiny,small,medium,large,code}
     mkdir -p "$HF_HOME"
     mkdir -p "$MLX_CACHE_DIR"
     mkdir -p "$HOME/.mlx-cache/transformers"
@@ -323,13 +375,14 @@ setup_models() {
     export MLX_CACHE_DIR="$HOME/.mlx-cache/mlx"
     export MLX_MODELS_DIR="$HOME/.mlx-cache/models"
     
-    mkdir -p "$MLX_MODELS_DIR"/{small,medium,large,code}
+    mkdir -p "$MLX_MODELS_DIR"/{tiny,small,medium,large,code}
     mkdir -p "$HF_HOME"
     mkdir -p "$MLX_CACHE_DIR"
     mkdir -p "$HOME/.mlx-cache/transformers"
     
     echo "📂 Model directory structure created in ~/.mlx-cache/:"
-    echo "   models/small/  - Models under 3B params"
+    echo "   models/tiny/   - Models under 2B params"
+    echo "   models/small/  - Models 2B-3B params"
     echo "   models/medium/ - Models 3B-8B params"
     echo "   models/large/  - Models over 8B params"
     echo "   models/code/   - Code-specialized models"
@@ -437,7 +490,8 @@ EOF
     "models_dir": "$MLX_MODELS_DIR",
     "hf_cache": "$HF_HOME",
     "categories": {
-        "small": "Models under 3B parameters",
+        "tiny": "Models under 2B parameters",
+        "small": "Models 2B-3B parameters",
         "medium": "Models 3B-8B parameters", 
         "large": "Models over 8B parameters",
         "code": "Code-specialized models"
@@ -461,16 +515,61 @@ list_models() {
         exit 1
     fi
     
-    for category in small medium large code; do
-        if [[ -f "$MLX_MODELS_DIR/$category/.model_list" ]]; then
+    local total_models=0
+    local has_models=false
+    
+    for category in tiny small medium large code; do
+        if [[ -f "$MLX_MODELS_DIR/$category/.model_list" ]] && [[ -s "$MLX_MODELS_DIR/$category/.model_list" ]]; then
+            has_models=true
             echo ""
-            echo "📂 $category models:"
-            while IFS=':' read -r model_id; do
-                model_name=$(basename "$model_id")
-                echo "   • $model_name"
+            
+            # Get category emoji and description
+            local emoji=$(get_category_emoji "$category")
+            case "$category" in
+                "tiny") echo "$emoji Tiny Models (< 2B parameters):" ;;
+                "small") echo "$emoji Small Models (2B-3B parameters):" ;;
+                "medium") echo "$emoji Medium Models (3B-8B parameters):" ;;
+                "large") echo "$emoji Large Models (> 8B parameters):" ;;
+                "code") echo "$emoji Code Models (specialized for programming):" ;;
+            esac
+            
+            local count=0
+            while IFS=':' read -r prefix model_id; do
+                if [[ "$prefix" == "model_id" ]]; then
+                    count=$((count + 1))
+                    total_models=$((total_models + 1))
+                    
+                    # Extract model name and make it more readable
+                    model_name=$(basename "$model_id")
+                    model_name=${model_name//-/ }  # Replace hyphens with spaces
+                    model_name=${model_name//_/ }  # Replace underscores with spaces
+                    
+                    # Try to determine model size from ID
+                    local size_info=""
+                    if [[ "$model_id" =~ ([0-9]+[Bb]) ]]; then
+                        size_info=" (${BASH_REMATCH[1]^^})"
+                    elif [[ "$model_id" =~ ([0-9]+\.[0-9]+[Bb]) ]]; then
+                        size_info=" (${BASH_REMATCH[1]^^})"
+                    fi
+                    
+                    printf "   %2d. 🤖 %s%s\n" "$count" "$model_name" "$size_info"
+                    printf "       📦 %s\n" "$model_id"
+                fi
             done < "$MLX_MODELS_DIR/$category/.model_list"
         fi
     done
+    
+    if [[ "$has_models" == "false" ]]; then
+        echo ""
+        echo "📭 No models installed yet"
+        echo "💡 To download models:"
+        echo "   ./install-llm.sh -s <pattern>  # Search available models"
+        echo "   ./install-llm.sh -d <number>   # Download by number"
+        echo "   ./install-llm.sh setup         # Setup with recommended models"
+    else
+        echo ""
+        echo "📊 Total installed models: $total_models"
+    fi
     
     # Show cache size
     if [[ -d "$MLX_CACHE_DIR" ]]; then
@@ -478,11 +577,16 @@ list_models() {
         echo ""
         echo "💾 Total cache size (~/.mlx-cache): $cache_size"
         
-        # Show breakdown
+        # Show breakdown with emojis
         for subdir in huggingface mlx models transformers; do
             if [[ -d "$MLX_CACHE_DIR/$subdir" ]]; then
                 subdir_size=$(du -sh "$MLX_CACHE_DIR/$subdir" 2>/dev/null | cut -f1 || echo "0")
-                echo "   $subdir: $subdir_size"
+                case "$subdir" in
+                    "huggingface") echo "   🤗 $subdir: $subdir_size" ;;
+                    "mlx") echo "   🔥 $subdir: $subdir_size" ;;
+                    "models") echo "   📦 $subdir: $subdir_size" ;;
+                    "transformers") echo "   🔄 $subdir: $subdir_size" ;;
+                esac
             fi
         done
     fi
@@ -593,13 +697,13 @@ case $COMMAND in
     setup)
         setup_models
         ;;
-    list)
+    list|-l)
         list_models
         ;;
-    search)
+    search|-s)
         search_models "${2:-}"
         ;;
-    download)
+    download|-d)
         download_model_by_key "${2:-}"
         ;;
     cleanup)
