@@ -325,17 +325,17 @@ def setup_readline():
         readline.parse_and_bind('tab: complete')
         
         # Enable arrow key navigation
-        readline.parse_and_bind('"\e[A": previous-history')  # Up arrow
-        readline.parse_and_bind('"\e[B": next-history')      # Down arrow
-        readline.parse_and_bind('"\e[C": forward-char')      # Right arrow
-        readline.parse_and_bind('"\e[D": backward-char')     # Left arrow
+        readline.parse_and_bind(r'"\e[A": previous-history')  # Up arrow
+        readline.parse_and_bind(r'"\e[B": next-history')      # Down arrow
+        readline.parse_and_bind(r'"\e[C": forward-char')      # Right arrow
+        readline.parse_and_bind(r'"\e[D": backward-char')     # Left arrow
         
         # Enable common editing shortcuts
-        readline.parse_and_bind('"\C-a": beginning-of-line')  # Ctrl+A
-        readline.parse_and_bind('"\C-e": end-of-line')        # Ctrl+E
-        readline.parse_and_bind('"\C-k": kill-line')          # Ctrl+K
-        readline.parse_and_bind('"\C-u": unix-line-discard')  # Ctrl+U
-        readline.parse_and_bind('"\C-h": "help\n"')           # Ctrl+H for help
+        readline.parse_and_bind(r'"\C-a": beginning-of-line')  # Ctrl+A
+        readline.parse_and_bind(r'"\C-e": end-of-line')        # Ctrl+E
+        readline.parse_and_bind(r'"\C-k": kill-line')          # Ctrl+K
+        readline.parse_and_bind(r'"\C-u": unix-line-discard')  # Ctrl+U
+        readline.parse_and_bind(r'"\C-h": "help\n"')           # Ctrl+H for help
         
         print("✅ Command history enabled (↑↓ arrows, Ctrl+A/E/K/U)")
         

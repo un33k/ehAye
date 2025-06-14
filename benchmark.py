@@ -328,8 +328,8 @@ def get_installed_models():
     
     return models
 
-def extract_model_size(model_name):
-    """Extract model size from model name and format it"""
+def extract_model_size_and_emoji(model_name):
+    """Extract model size from model name and return size info with emoji"""
     import re
     
     # Look for size patterns like "1.5B", "7B", "8B", etc.
@@ -341,10 +341,22 @@ def extract_model_size(model_name):
     for pattern in size_patterns:
         match = re.search(pattern, model_name)
         if match:
-            size_num = match.group(1)
-            return f"({size_num}B)"
+            size_num = float(match.group(1))
+            size_str = f"({match.group(1)}B)"
+            
+            # Determine emoji based on size
+            if size_num < 2:
+                emoji = "🔵"  # Tiny
+            elif size_num < 8:
+                emoji = "🟢"  # Small/Medium
+            elif size_num < 15:
+                emoji = "🟡"  # Medium
+            else:
+                emoji = "🔴"  # Large
+            
+            return emoji, size_str
     
-    return None
+    return "📦", None
 
 def parse_model_selection(choice_input, available_models):
     """Parse user selection input - supports single numbers, ranges (1-3), and lists (1,2,4)"""
@@ -448,9 +460,12 @@ def main():
         available_models = installed_models
         
         for i, model in enumerate(available_models):
-            # Extract size from model name
-            size_info = extract_model_size(model)
-            model_display = f"{size_info} {model}" if size_info else model
+            # Extract size and emoji from model name
+            emoji, size_info = extract_model_size_and_emoji(model)
+            if size_info:
+                model_display = f"{emoji} {size_info} {model}"
+            else:
+                model_display = f"{emoji} {model}"
             print(f"   {i+1}. {model_display}")
         print(f"   {len(available_models)+1}. Compare all available")
         print("\n💡 Selection examples:")
