@@ -51,6 +51,8 @@ def check_virtual_env():
 check_virtual_env()
 
 from mlx_lm import load, generate
+from mlx_lm.sample_utils import make_sampler
+from pathlib import Path
 
 def get_system_info():
     """Get system information for benchmark context"""
@@ -133,11 +135,14 @@ def benchmark_model(model_name, num_tokens=100, num_runs=3, prompts=None):
         
         start_time = time.time()
         try:
+            # Create sampler with temperature
+            sampler = make_sampler(temp=0.7)
+            
             response = generate(
                 model, tokenizer,
                 prompt=prompt,
                 max_tokens=num_tokens,
-                temp=0.7,
+                sampler=sampler,
                 verbose=False
             )
             generation_time = time.time() - start_time
@@ -301,6 +306,97 @@ def compare_models(models, num_tokens=100, num_runs=2):
         memory_efficient = min(results, key=lambda x: x['model_memory_mb'])
         print(f"   💾 Most efficient: {memory_efficient['model_name']} ({memory_efficient['model_memory_mb']:.0f}MB)")
 
+def get_installed_models():
+    """Get list of actually installed models"""
+    models = []
+    models_dir = Path.home() / ".mlx-cache" / "models"
+    
+    if not models_dir.exists():
+        return models
+    
+    for category in ["tiny", "small", "medium", "large"]:
+        category_dir = models_dir / category
+        model_list_file = category_dir / ".model_list"
+        
+        if model_list_file.exists() and model_list_file.stat().st_size > 0:
+            with open(model_list_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("model_id:"):
+                        model_id = line.replace("model_id:", "")
+                        models.append(model_id)
+    
+    return models
+
+def extract_model_size(model_name):
+    """Extract model size from model name and format it"""
+    import re
+    
+    # Look for size patterns like "1.5B", "7B", "8B", etc.
+    size_patterns = [
+        r'(\d+\.\d+)[Bb]',  # Matches "1.5B", "2.7B"
+        r'(\d+)[Bb]',       # Matches "7B", "8B", "70B"
+    ]
+    
+    for pattern in size_patterns:
+        match = re.search(pattern, model_name)
+        if match:
+            size_num = match.group(1)
+            return f"({size_num}B)"
+    
+    return None
+
+def parse_model_selection(choice_input, available_models):
+    """Parse user selection input - supports single numbers, ranges (1-3), and lists (1,2,4)"""
+    max_choice = len(available_models) + 1
+    selected_models = []
+    
+    # Handle special case for "compare all"
+    if choice_input.strip() == str(max_choice):
+        return available_models
+    
+    try:
+        # Split by commas for list input
+        parts = [part.strip() for part in choice_input.split(',')]
+        
+        for part in parts:
+            if '-' in part and part.count('-') == 1:
+                # Range input like "1-3"
+                start_str, end_str = part.split('-')
+                start = int(start_str.strip())
+                end = int(end_str.strip())
+                
+                if start < 1 or end > len(available_models) or start > end:
+                    print(f"⚠️  Invalid range: {part} (valid: 1-{len(available_models)})")
+                    return []
+                
+                # Add models in range
+                for i in range(start, end + 1):
+                    model = available_models[i - 1]
+                    if model not in selected_models:
+                        selected_models.append(model)
+                        
+            else:
+                # Single number
+                choice_num = int(part)
+                
+                if choice_num == max_choice:
+                    # Compare all available
+                    return available_models
+                elif 1 <= choice_num <= len(available_models):
+                    model = available_models[choice_num - 1]
+                    if model not in selected_models:
+                        selected_models.append(model)
+                else:
+                    print(f"⚠️  Invalid choice: {choice_num} (valid: 1-{len(available_models)} or {max_choice} for all)")
+                    return []
+        
+        return selected_models
+        
+    except ValueError:
+        print("⚠️  Invalid format. Use numbers (1), ranges (1-3), or lists (1,2,4)")
+        return []
+
 def main():
     parser = argparse.ArgumentParser(description="MLX Performance Benchmark")
     parser.add_argument("--model", 
@@ -316,14 +412,32 @@ def main():
     
     args = parser.parse_args()
     
-    # Default models for comparison
-    default_models = [
-        "mlx-community/phi-2-MLX",
-        "mlx-community/Mistral-7B-Instruct-v0.1-4bit-mlx"
-    ]
+    # Get actually installed models
+    installed_models = get_installed_models()
+    
+    if not installed_models:
+        print("❌ No models found!")
+        print("💡 To install models:")
+        print("   ./install-llm.sh -s <pattern>  # Search models")
+        print("   ./install-llm.sh -d <number>   # Download by number")
+        return 1
+    
+    # Use installed models as default
+    default_models = installed_models[:4]  # Use first 4 installed models
     
     if args.compare or args.models:
-        models = args.models if args.models else default_models
+        if args.models:
+            # Validate that provided models are installed
+            missing_models = [m for m in args.models if m not in installed_models]
+            if missing_models:
+                print(f"❌ Models not installed: {', '.join(missing_models)}")
+                print("💡 Available models:")
+                for model in installed_models:
+                    print(f"   {model}")
+                return 1
+            models = args.models
+        else:
+            models = default_models
         compare_models(models, args.tokens, args.runs)
     elif args.model:
         result = benchmark_model(args.model, args.tokens, args.runs)
@@ -331,29 +445,44 @@ def main():
     else:
         # Interactive model selection
         print("🤖 Available models for benchmarking:")
-        available_models = [
-            "mlx-community/phi-2-MLX",
-            "mlx-community/Mistral-7B-Instruct-v0.1-4bit-mlx",
-            "mlx-community/CodeLlama-7b-Instruct-hf-4bit-mlx",
-            "mlx-community/Llama-2-7b-chat-hf-4bit-mlx"
-        ]
+        available_models = installed_models
         
         for i, model in enumerate(available_models):
-            print(f"   {i+1}. {model}")
+            # Extract size from model name
+            size_info = extract_model_size(model)
+            model_display = f"{size_info} {model}" if size_info else model
+            print(f"   {i+1}. {model_display}")
         print(f"   {len(available_models)+1}. Compare all available")
+        print("\n💡 Selection examples:")
+        print("   1      - Benchmark single model")
+        print("   1-3    - Compare models 1 through 3")
+        print("   1,3,4  - Compare specific models 1, 3, and 4")
+        print(f"   {len(available_models)+1}      - Compare all models")
+        print("   q      - Quit benchmark")
         
         try:
-            choice = int(input(f"\nSelect model (1-{len(available_models)+1}): "))
-            if 1 <= choice <= len(available_models):
-                model = available_models[choice-1]
-                result = benchmark_model(model, args.tokens, args.runs)
-                print_benchmark_results(result)
-            elif choice == len(available_models)+1:
-                compare_models(available_models, args.tokens, args.runs)
-            else:
+            choice_input = input(f"\nSelect model(s) (1-{len(available_models)+1}, ranges like 1-3, lists like 1,3,4, or 'q' to quit): ").strip()
+            
+            # Check for quit
+            if choice_input.lower() in ['q', 'quit', 'exit']:
+                print("👋 Goodbye!")
+                return 0
+            
+            selected_models = parse_model_selection(choice_input, available_models)
+            
+            if not selected_models:
                 print("❌ Invalid selection")
                 return 1
-        except (ValueError, KeyboardInterrupt):
+            elif len(selected_models) == 1:
+                # Single model benchmark
+                model = selected_models[0]
+                result = benchmark_model(model, args.tokens, args.runs)
+                print_benchmark_results(result)
+            else:
+                # Multiple model comparison
+                compare_models(selected_models, args.tokens, args.runs)
+                
+        except (KeyboardInterrupt, EOFError):
             print("\n👋 Benchmark cancelled")
             return 1
 
