@@ -18,8 +18,11 @@ Commands:
     -l                  Short for list
     search [PATTERN]    Search available models (e.g., mistral, llama, phi)
     -s [PATTERN]        Short for search
+    -f [FLAVOR]         Filter search results by flavor/keyword (use with -s)
     download <MODEL>    Download a specific model by name or number from search
     -d <MODEL|ID>       Short for download (use model key or number from search)
+    install <MODEL_ID>  Auto-install model by full model ID (non-interactive)
+    -i <MODEL_ID>       Short for install
     cleanup             Clean up cached models
     help                Show this help message
 
@@ -27,9 +30,12 @@ Examples:
     ./install-llm.sh setup             # Initial setup and model download
     ./install-llm.sh -l                # Show installed models
     ./install-llm.sh -s mistral        # Search for Mistral models
+    ./install-llm.sh -s deepseek -f coder  # Search DeepSeek models filtered by 'coder'
+    ./install-llm.sh -s llama -f 7B    # Search Llama models filtered by '7B'
     ./install-llm.sh -d mistral-7b     # Download Mistral 7B model
-    ./install-llm.sh -s deepseek       # Search DeepSeek models
     ./install-llm.sh -d 2              # Download model #2 from last search
+    ./install-llm.sh install mlx-community/Meta-Llama-3-8B-Instruct-4bit  # Auto-install
+    ./install-llm.sh -i mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit   # Auto-install short
     ./install-llm.sh search            # List all available models
     ./install-llm.sh cleanup           # Clean up cache
 
@@ -80,43 +86,109 @@ echo "📊 System memory: ${MEM_TOTAL_GB}GB"
 # Store last search results for numbered downloads
 LAST_SEARCH_RESULTS_FILE="/tmp/mlx_last_search_results.txt"
 
-# --- Model Database ---
-# Comprehensive list of available MLX models
-get_model_info() {
-    local key="$1"
-    case "$key" in
-        # Tiny Models (< 2B parameters)
-        "llama-3.2-1b") echo "mlx-community/Llama-3.2-1B-Instruct-4bit:tiny:1B:Meta Llama 3.2 1B - Ultra lightweight" ;;
-        "deepseek-1.3b") echo "mlx-community/deepseek-coder-1.3b-base-mlx:tiny:1.3B:DeepSeek Coder 1.3B - Base code model" ;;
-        
-        # Small Models (2B-3B parameters)
-        "phi-2") echo "mlx-community/phi-2:small:2.7B:Microsoft Phi-2 - Fast and capable" ;;
-        "deepseek-coder-lite") echo "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit-mlx:small:2.46B:DeepSeek Coder V2 Lite - Latest code model" ;;
-        "llama-3.2-3b") echo "mlx-community/Llama-3.2-3B-Instruct-4bit:small:3B:Meta Llama 3.2 3B - Compact but capable" ;;
-        "deepseek-math-7b") echo "mlx-community/deepseek-math-7b-instruct:small:7B:DeepSeek Math 7B - Mathematical reasoning" ;;
-        "deepseek-coder-6.7b") echo "mlx-community/deepseek-coder-6.7b-instruct-4bit:small:6.7B:DeepSeek Coder 6.7B - Code generation" ;;
-        
-        # Medium Models (3B-8B parameters)
-        "qwen2.5-7b") echo "mlx-community/Qwen2.5-7B-Instruct-4bit:medium:7B:Qwen 2.5 7B - High quality instruction model" ;;
-        "command-r-7b") echo "mlx-community/c4ai-command-r7b-12-2024-4bit:medium:7B:Command R 7B - Dec 2024 release" ;;
-        "gemma-2-9b") echo "mlx-community/gemma-2-9b-it-4bit:medium:9B:Google Gemma 2 9B - Instruction tuned" ;;
-        "mistral-small") echo "mlx-community/Mistral-Small-Instruct-2409-4bit:medium:7B:Mistral Small - Sept 2024" ;;
-        "llama-3.2-11b-vision") echo "mlx-community/Llama-3.2-11B-Vision-Instruct-4bit:medium:11B:Meta Llama 3.2 11B - Vision capable" ;;
-        
-        # Large Models (> 8B parameters)
-        "qwen2.5-32b") echo "mlx-community/Qwen2.5-32B-Instruct-4bit:large:32B:Qwen 2.5 32B - High performance" ;;
-        "qwen2.5-72b") echo "mlx-community/Qwen2.5-72B-Instruct-4bit:large:72B:Qwen 2.5 72B - Largest Qwen model" ;;
-        "command-r-plus") echo "mlx-community/c4ai-command-r-plus-08-2024-4bit:large:35B:Command R Plus - Aug 2024" ;;
-        "deepseek-r1") echo "mlx-community/DeepSeek-R1-3bit:large:67B:DeepSeek R1 - Latest reasoning model" ;;
-        "deepseek-coder-33b") echo "mlx-community/deepseek-coder-33b-instruct-4bit:large:33B:DeepSeek Coder 33B - Large code model" ;;
-        "deepseek-v3") echo "mlx-community/DeepSeek-V3-4bit:large:685B:DeepSeek V3 - Massive reasoning model" ;;
-        *) echo "" ;;
-    esac
-}
+# --- Dynamic Model Search Functions ---
+# Search Hugging Face for MLX models
+search_huggingface_models() {
+    local search_pattern="$1"
+    local filter_flavor="$2"
+    
+    echo "🔍 Searching Hugging Face for MLX models..."
+    
+    # Create Python script to search Hugging Face Hub
+    cat > /tmp/search_hf_models.py << 'EOF'
+import requests
+import json
+import sys
+import re
+from urllib.parse import quote
 
-# Get all model keys
-get_all_model_keys() {
-    echo "llama-3.2-1b deepseek-1.3b phi-2 deepseek-coder-lite llama-3.2-3b deepseek-math-7b deepseek-coder-6.7b qwen2.5-7b command-r-7b gemma-2-9b mistral-small llama-3.2-11b-vision qwen2.5-32b qwen2.5-72b command-r-plus deepseek-r1 deepseek-coder-33b deepseek-v3"
+def search_models(query, filter_flavor=None):
+    # Search for models in mlx-community organization
+    url = f"https://huggingface.co/api/models?search={quote(query)}&author=mlx-community&limit=100"
+    
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        models = response.json()
+        
+        results = []
+        
+        for model in models:
+            model_id = model.get('id', '')
+            model_name = model_id.split('/')[-1] if '/' in model_id else model_id
+            
+            # Skip if not from mlx-community
+            if not model_id.startswith('mlx-community/'):
+                continue
+                
+            # Apply flavor filter if specified
+            if filter_flavor:
+                if filter_flavor.lower() not in model_name.lower():
+                    continue
+            
+            # Extract model info
+            tags = model.get('tags', [])
+            downloads = model.get('downloads', 0)
+            
+            # Extract size from model name and determine category
+            size = "Unknown"
+            category = "medium"  # default
+            
+            size_match = re.search(r'(\d+(?:\.\d+)?)[Bb]', model_name)
+            if size_match:
+                size_num = float(size_match.group(1))
+                size = f"{size_match.group(1)}B"
+                
+                if size_num < 2:
+                    category = "tiny"
+                elif size_num < 8:
+                    category = "small"
+                elif size_num < 15:
+                    category = "medium"
+                else:
+                    category = "large"
+            else:
+                # Skip models with unknown sizes
+                continue
+            
+            # Only add models with known sizes
+            if size != "Unknown":
+                results.append({
+                    'id': model_id,
+                    'name': model_name,
+                    'category': category,
+                    'size': size,
+                    'downloads': downloads,
+                    'tags': tags
+                })
+        
+        # Sort by downloads (popularity)
+        results.sort(key=lambda x: x['downloads'], reverse=True)
+        
+        return results
+        
+    except Exception as e:
+        print(f"Error searching models: {e}", file=sys.stderr)
+        return []
+
+if __name__ == "__main__":
+    query = sys.argv[1] if len(sys.argv) > 1 else ""
+    flavor = sys.argv[2] if len(sys.argv) > 2 else None
+    
+    models = search_models(query, flavor)
+    
+    for model in models:
+        print(f"{model['id']}:{model['category']}:{model['size']}:{model['name']} - {model['downloads']} downloads")
+EOF
+    
+    # Run the search
+    python /tmp/search_hf_models.py "$search_pattern" "$filter_flavor" 2>/dev/null
+    local exit_code=$?
+    
+    # Clean up
+    rm -f /tmp/search_hf_models.py
+    
+    return $exit_code
 }
 
 # Function to get category emoji
@@ -126,7 +198,6 @@ get_category_emoji() {
         "small") echo "🟢" ;;
         "medium") echo "🟡" ;;
         "large") echo "🔴" ;;
-        "code") echo "💻" ;;
         *) echo "📦" ;;
     esac
 }
@@ -134,56 +205,84 @@ get_category_emoji() {
 # --- Model Search Function ---
 search_models() {
     local search_pattern="${1:-}"
+    local filter_flavor="${2:-}"
     
     echo "🔍 Available MLX Models"
     echo "======================"
     
     if [[ -n "$search_pattern" ]]; then
         echo "🔎 Searching for: '$search_pattern'"
+        if [[ -n "$filter_flavor" ]]; then
+            echo "🎯 Filtered by: '$filter_flavor'"
+        fi
         echo ""
     fi
     
-    
-    # Function to format size for sorting
-    size_sort_key() {
-        local size="$1"
-        if [[ "$size" =~ ^([0-9.]+)B$ ]]; then
-            echo "${BASH_REMATCH[1]}" | awk '{printf "%05.1f", $1}'
-        else
-            echo "00000"
-        fi
-    }
-    
-    # Search and display models
+    # Use dynamic search if search pattern is provided
     local found_models=()
-    local search_lower=$(echo "$search_pattern" | tr '[:upper:]' '[:lower:]')
     
-    for model_key in $(get_all_model_keys); do
-        local model_info=$(get_model_info "$model_key")
-        [[ -z "$model_info" ]] && continue
+    if [[ -n "$search_pattern" ]]; then
+        # Get models from Hugging Face API
+        local hf_results
+        hf_results=$(search_huggingface_models "$search_pattern" "$filter_flavor")
         
-        IFS=':' read -r model_id category size description <<< "$model_info"
-        
-        # Check if pattern matches model key, ID, or description
-        if [[ -z "$search_pattern" ]] || \
-           [[ "$model_key" == *"$search_lower"* ]] || \
-           [[ "$(echo "$model_id" | tr '[:upper:]' '[:lower:]')" == *"$search_lower"* ]] || \
-           [[ "$(echo "$description" | tr '[:upper:]' '[:lower:]')" == *"$search_lower"* ]]; then
-            
-            # Create sortable entry: category|size_key|model_key|info
-            local size_key=$(size_sort_key "$size")
-            found_models+=("$category|$size_key|$model_key|$model_info")
+        if [[ -z "$hf_results" ]]; then
+            echo "❌ No models found matching '$search_pattern'"
+            if [[ -n "$filter_flavor" ]]; then
+                echo "    with flavor '$filter_flavor'"
+            fi
+            echo ""
+            echo "💡 Try searching for:"
+            echo "   • Model families: mistral, llama, phi, gemma, deepseek"
+            echo "   • Use cases: code, coder, instruct, chat"
+            echo "   • Sizes: 1b, 3b, 7b, 13b, 70b"
+            echo "   • Companies: microsoft, meta, google, deepseek"
+            echo ""
+            echo "📖 Usage examples:"
+            echo "   ./install-llm.sh -s deepseek -f coder"
+            echo "   ./install-llm.sh -s llama -f 7B"
+            return 1
         fi
-    done
+        
+        # Parse HF results into our format
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            # Skip lines that don't look like model results
+            [[ "$line" == *"Searching Hugging Face"* ]] && continue
+            [[ "$line" != *":"* ]] && continue
+            IFS=':' read -r model_id category size description <<< "$line"
+            
+            # Function to format size for sorting
+            size_sort_key() {
+                local size="$1"
+                if [[ "$size" =~ ^([0-9.]+)B$ ]]; then
+                    echo "${BASH_REMATCH[1]}" | awk '{printf "%05.1f", $1}'
+                else
+                    echo "00000"
+                fi
+            }
+            
+            local size_key=$(size_sort_key "$size")
+            local model_key=$(basename "$model_id")
+            found_models+=("$category|$size_key|$model_key|$model_id:$category:$size:$description")
+        done <<< "$hf_results"
+    else
+        echo "💡 Please specify a search pattern:"
+        echo "   ./install-llm.sh -s <pattern> [-f <flavor>]"
+        echo ""
+        echo "📖 Examples:"
+        echo "   ./install-llm.sh -s deepseek        # All DeepSeek models"
+        echo "   ./install-llm.sh -s deepseek -f coder # DeepSeek models with 'coder'"
+        echo "   ./install-llm.sh -s llama -f 7B     # Llama models with '7B'"
+        echo "   ./install-llm.sh -s mistral         # All Mistral models"
+        return 0
+    fi
     
     if [[ ${#found_models[@]} -eq 0 ]]; then
         echo "❌ No models found matching '$search_pattern'"
-        echo ""
-        echo "💡 Try searching for:"
-        echo "   • Model families: mistral, llama, phi, gemma"
-        echo "   • Use cases: code, chat, instruct"
-        echo "   • Sizes: 7b, 13b, 34b"
-        echo "   • Companies: microsoft, meta, google"
+        if [[ -n "$filter_flavor" ]]; then
+            echo "    with flavor '$filter_flavor'"
+        fi
         return 1
     fi
     
@@ -204,17 +303,17 @@ search_models() {
             local emoji=$(get_category_emoji "$category")
             case "$category" in
                 "tiny") echo "$emoji Tiny Models (< 2B parameters):" ;;
-                "small") echo "$emoji Small Models (2B-3B parameters):" ;;
-                "medium") echo "$emoji Medium Models (3B-8B parameters):" ;;
-                "large") echo "$emoji Large Models (> 8B parameters):" ;;
-                "code") echo "$emoji Code Models (specialized for programming):" ;;
+                "small") echo "$emoji Small Models (2B-8B parameters):" ;;
+                "medium") echo "$emoji Medium Models (8B-15B parameters):" ;;
+                "large") echo "$emoji Large Models (> 15B parameters):" ;;
             esac
             current_category="$category"
         fi
         
-        # Print model info
+        # Print model info in requested format
         count=$((count + 1))
-        printf "  %2d. %-20s %s %-6s %s\n" "$count" "$model_key" "$(get_category_emoji "$category")" "($size)" "$description"
+        local org_name=$(echo "$model_id" | cut -d'/' -f1)
+        printf "  %2d. (%s) %s [%s]\n" "$count" "$size" "$model_key" "$org_name"
     done
     
     echo ""
@@ -224,17 +323,126 @@ search_models() {
     > "$LAST_SEARCH_RESULTS_FILE"  # Clear file
     for model_entry in "${found_models[@]}"; do
         IFS='|' read -r cat size_key model_key model_info <<< "$model_entry"
-        echo "$model_key" >> "$LAST_SEARCH_RESULTS_FILE"
+        IFS=':' read -r model_id category size description <<< "$model_info"
+        echo "$model_id" >> "$LAST_SEARCH_RESULTS_FILE"
     done
     
     if [[ -n "$search_pattern" ]]; then
         echo ""
         echo "💡 To download a model:"
-        echo "   ./install-llm.sh download <model-key>  # By name"
-        echo "   ./install-llm.sh -d <model-key>       # Short form"
         echo "   ./install-llm.sh -d <number>          # By number from search"
+        echo "   ./install-llm.sh -d <model-id>        # By full model ID"
         echo "   Example: ./install-llm.sh -d 1        # Download first result"
+        echo ""
+        echo "🔍 Refine your search:"
+        echo "   ./install-llm.sh -s $search_pattern -f <flavor>  # Add flavor filter"
     fi
+}
+
+# --- Auto Install Model (Non-interactive) ---
+auto_install_model() {
+    local model_id="${1:-}"
+    
+    if [[ -z "$model_id" ]]; then
+        echo "❌ Error: Model ID is required for auto-install"
+        echo "💡 Usage: ./install-llm.sh install <full-model-id>"
+        echo "   Example: ./install-llm.sh install mlx-community/Meta-Llama-3-8B-Instruct-4bit"
+        return 1
+    fi
+    
+    # Validate model ID format
+    if [[ "$model_id" != *"/"* ]]; then
+        echo "❌ Error: Model ID must be in format 'organization/model-name'"
+        echo "   Example: mlx-community/Meta-Llama-3-8B-Instruct-4bit"
+        return 1
+    fi
+    
+    # Set up cache directories
+    export HF_HOME="$HOME/.mlx-cache/huggingface"
+    export MLX_CACHE_DIR="$HOME/.mlx-cache/mlx"
+    export MLX_MODELS_DIR="$HOME/.mlx-cache/models"
+    
+    # Create directories if they don't exist
+    mkdir -p "$MLX_MODELS_DIR"/{tiny,small,medium,large}
+    mkdir -p "$HF_HOME"
+    mkdir -p "$MLX_CACHE_DIR"
+    mkdir -p "$HOME/.mlx-cache/transformers"
+    
+    # Extract model info from ID
+    local model_name=$(basename "$model_id")
+    local category="medium"  # default
+    local size="Unknown"
+    
+    # Extract size and category from model name
+    if [[ "$model_name" =~ [0-9]+(\.[0-9]+)?[Bb] ]]; then
+        local size_match
+        size_match=$(echo "$model_name" | grep -oE '[0-9]+(\.[0-9]+)?[Bb]' | head -1)
+        local size_num=${size_match%[Bb]}
+        size="${size_num}B"
+        
+        # Simple integer comparison
+        if [[ "${size_num%.*}" -lt 2 ]]; then
+            category="tiny"
+        elif [[ "${size_num%.*}" -lt 8 ]]; then
+            category="small"
+        elif [[ "${size_num%.*}" -lt 15 ]]; then
+            category="medium"
+        else
+            category="large"
+        fi
+    fi
+    
+    echo "📥 Auto-installing Model"
+    echo "========================"
+    echo "📦 Model ID: $model_id"
+    echo "🏷️  Name: $model_name"
+    echo "📊 Size: $size"
+    echo "🏷️  Category: $category"
+    echo ""
+    
+    # Check if model is already downloaded
+    if [[ -f "$MLX_MODELS_DIR/$category/.model_list" ]] && grep -q "$model_id" "$MLX_MODELS_DIR/$category/.model_list"; then
+        echo "✅ Model '$model_name' is already installed"
+        echo "📁 Location: $MLX_MODELS_DIR/$category/"
+        return 0
+    fi
+    
+    # Create download script
+    cat > /tmp/auto_install_model.py << EOF
+import os
+import sys
+from mlx_lm import load
+
+try:
+    print("🔄 Downloading model...")
+    model, tokenizer = load('$model_id')
+    print("✅ Model downloaded successfully")
+    print(f"📁 Cached in: {os.environ.get('HF_HOME', 'default cache')}")
+except Exception as e:
+    print(f"❌ Download failed: {e}")
+    sys.exit(1)
+EOF
+    
+    # Download the model
+    if python /tmp/auto_install_model.py; then
+        echo "✅ Model '$model_name' installed successfully"
+        
+        # Add to model list
+        mkdir -p "$MLX_MODELS_DIR/$category"
+        echo "model_id:$model_id" >> "$MLX_MODELS_DIR/$category/.model_list"
+        
+        echo ""
+        echo "🎉 Auto-install completed!"
+        echo "💡 To use this model:"
+        echo "   python chat.py --model $model_id"
+        echo "   python benchmark.py --model $model_id"
+    else
+        echo "❌ Failed to install '$model_name'"
+        rm -f /tmp/auto_install_model.py
+        return 1
+    fi
+    
+    rm -f /tmp/auto_install_model.py
 }
 
 # --- Download Specific Model ---
@@ -282,26 +490,55 @@ download_model_by_key() {
     export MLX_MODELS_DIR="$HOME/.mlx-cache/models"
     
     # Create directories if they don't exist
-    mkdir -p "$MLX_MODELS_DIR"/{tiny,small,medium,large,code}
+    mkdir -p "$MLX_MODELS_DIR"/{tiny,small,medium,large}
     mkdir -p "$HF_HOME"
     mkdir -p "$MLX_CACHE_DIR"
     mkdir -p "$HOME/.mlx-cache/transformers"
     
-    # Get model info
-    local model_info=$(get_model_info "$model_key")
+    # If model_key looks like a full model ID (contains '/'), use it directly
+    local model_id="$model_key"
+    local category="medium"  # default
+    local size="Unknown"
+    local description="$model_key"
     
-    if [[ -z "$model_info" ]]; then
-        echo "❌ Error: Model '$model_key' not found"
+    # If it's a full model ID, extract info from it
+    if [[ "$model_key" == *"/"* ]]; then
+        # Already a full model ID
+        model_id="$model_key"
+        local model_name=$(basename "$model_id")
+        description="$model_name"
+        
+        # Extract size and category from model name
+        if [[ "$model_name" =~ [0-9]+(\.?[0-9]*)?[Bb] ]]; then
+            local size_match
+            size_match=$(echo "$model_name" | grep -oE '[0-9]+(\.?[0-9]*)?[Bb]' | head -1)
+            local size_num=${size_match%[Bb]}
+            size="${size_num}B"
+            
+            # Simple integer comparison without bc dependency
+            if [[ "${size_num%.*}" -lt 2 ]]; then
+                category="tiny"
+            elif [[ "${size_num%.*}" -lt 8 ]]; then
+                category="small"
+            elif [[ "${size_num%.*}" -lt 15 ]]; then
+                category="medium"
+            else
+                category="large"
+            fi
+        fi
+        
+        # Category is determined by size only
+    else
+        echo "❌ Error: Model '$model_key' not found or invalid format"
         echo ""
-        echo "🔍 Available models:"
-        echo "   ./install-llm.sh search"
+        echo "🔍 To find models:"
+        echo "   ./install-llm.sh -s <search-pattern>"
+        echo "   ./install-llm.sh -s deepseek -f coder"
         echo ""
-        echo "💡 Popular models:"
-        echo "   mistral-7b, phi-2, codellama-7b, llama-2-7b"
+        echo "💡 Then download by number:"
+        echo "   ./install-llm.sh -d <number>"
         return 1
     fi
-    
-    IFS=':' read -r model_id category size description <<< "$model_info"
     
     echo "📥 Downloading Model"
     echo "==================="
@@ -375,17 +612,16 @@ setup_models() {
     export MLX_CACHE_DIR="$HOME/.mlx-cache/mlx"
     export MLX_MODELS_DIR="$HOME/.mlx-cache/models"
     
-    mkdir -p "$MLX_MODELS_DIR"/{tiny,small,medium,large,code}
+    mkdir -p "$MLX_MODELS_DIR"/{tiny,small,medium,large}
     mkdir -p "$HF_HOME"
     mkdir -p "$MLX_CACHE_DIR"
     mkdir -p "$HOME/.mlx-cache/transformers"
     
     echo "📂 Model directory structure created in ~/.mlx-cache/:"
     echo "   models/tiny/   - Models under 2B params"
-    echo "   models/small/  - Models 2B-3B params"
-    echo "   models/medium/ - Models 3B-8B params"
-    echo "   models/large/  - Models over 8B params"
-    echo "   models/code/   - Code-specialized models"
+    echo "   models/small/  - Models 2B-8B params"
+    echo "   models/medium/ - Models 8B-15B params"
+    echo "   models/large/  - Models over 15B params"
     echo "   huggingface/   - Hugging Face model cache"
     echo "   mlx/           - MLX-specific cache"
     echo "   transformers/  - Transformers library cache"
@@ -491,10 +727,9 @@ EOF
     "hf_cache": "$HF_HOME",
     "categories": {
         "tiny": "Models under 2B parameters",
-        "small": "Models 2B-3B parameters",
-        "medium": "Models 3B-8B parameters", 
-        "large": "Models over 8B parameters",
-        "code": "Code-specialized models"
+        "small": "Models 2B-8B parameters",
+        "medium": "Models 8B-15B parameters", 
+        "large": "Models over 15B parameters"
     }
 }
 EOF
@@ -518,7 +753,7 @@ list_models() {
     local total_models=0
     local has_models=false
     
-    for category in tiny small medium large code; do
+    for category in tiny small medium large; do
         if [[ -f "$MLX_MODELS_DIR/$category/.model_list" ]] && [[ -s "$MLX_MODELS_DIR/$category/.model_list" ]]; then
             has_models=true
             echo ""
@@ -530,7 +765,6 @@ list_models() {
                 "small") echo "$emoji Small Models (2B-3B parameters):" ;;
                 "medium") echo "$emoji Medium Models (3B-8B parameters):" ;;
                 "large") echo "$emoji Large Models (> 8B parameters):" ;;
-                "code") echo "$emoji Code Models (specialized for programming):" ;;
             esac
             
             local count=0
@@ -628,20 +862,20 @@ cleanup_models() {
             ;;
         2)
             echo "Select category to clear:"
-            echo "1. Small models"
-            echo "2. Medium models" 
-            echo "3. Large models"
-            echo "4. Code models"
+            echo "1. Tiny models"
+            echo "2. Small models"
+            echo "3. Medium models" 
+            echo "4. Large models"
             echo "5. Hugging Face cache"
             echo "6. MLX cache"
             echo "7. Transformers cache"
             read -p "Choose category (1-7): " -r cat_option
             
             case $cat_option in
-                1) category="small" ;;
-                2) category="medium" ;;
-                3) category="large" ;;
-                4) category="code" ;;
+                1) category="tiny" ;;
+                2) category="small" ;;
+                3) category="medium" ;;
+                4) category="large" ;;
                 5) 
                     read -p "⚠️  Clear Hugging Face cache? (y/N): " -r confirm
                     if [[ $confirm =~ ^[Yy]$ ]]; then
@@ -692,6 +926,16 @@ show_help() {
 
 # Parse command line arguments
 COMMAND="${1:-setup}"
+FLAVOR_FILTER=""
+
+# Parse arguments for search with flavor
+if [[ "$COMMAND" == "-s" || "$COMMAND" == "search" ]]; then
+    SEARCH_PATTERN="${2:-}"
+    # Check for -f flag
+    if [[ "${3:-}" == "-f" && -n "${4:-}" ]]; then
+        FLAVOR_FILTER="$4"
+    fi
+fi
 
 case $COMMAND in
     setup)
@@ -701,10 +945,13 @@ case $COMMAND in
         list_models
         ;;
     search|-s)
-        search_models "${2:-}"
+        search_models "$SEARCH_PATTERN" "$FLAVOR_FILTER"
         ;;
     download|-d)
         download_model_by_key "${2:-}"
+        ;;
+    install|-i)
+        auto_install_model "${2:-}"
         ;;
     cleanup)
         cleanup_models

@@ -8,6 +8,8 @@ import argparse
 import time
 import os
 import sys
+import readline
+import atexit
 
 # Check if running in correct virtual environment
 def check_virtual_env():
@@ -217,9 +219,26 @@ def format_chat_prompt(message, model_name=""):
     else:
         return message
 
+def show_gpu_memory():
+    """Show GPU memory limit if available"""
+    try:
+        import subprocess
+        result = subprocess.run(['sysctl', '-n', 'iogpu.wired_limit_mb'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            gpu_mb = int(result.stdout.strip())
+            print(f"🎮 GPU Memory Limit: {gpu_mb}MB ({gpu_mb/1024:.1f}GB)")
+        else:
+            print("🎮 GPU Memory: Not available")
+    except Exception:
+        print("🎮 GPU Memory: Not detected")
+
 def print_model_info(model_name):
     """Print information about the loaded model"""
     print(f"🤖 Model: {model_name}")
+    
+    # Show GPU memory limit
+    show_gpu_memory()
     
     # Estimate model size and type
     if "phi-2" in model_name.lower():
@@ -247,6 +266,15 @@ def show_help():
    tokens <value>  - Change max tokens (1-2048)
    model           - Show current model info
    stream          - Toggle streaming mode on/off
+   
+🎮 Keyboard shortcuts:
+   ↑↓ arrows       - Navigate command history
+   Ctrl+A          - Move to beginning of line
+   Ctrl+E          - Move to end of line
+   Ctrl+K          - Delete to end of line
+   Ctrl+U          - Delete entire line
+   Ctrl+H          - Show help (quick shortcut)
+   Tab             - Basic completion
    """)
 
 def show_stats():
@@ -273,7 +301,77 @@ def show_stats():
     except ImportError:
         print("📊 Stats require psutil package")
 
+def setup_readline():
+    """Setup readline for command history and arrow key navigation"""
+    try:
+        # Set up history file
+        history_file = os.path.expanduser('~/.mlx_chat_history')
+        
+        # Enable history
+        readline.set_startup_hook(None)
+        
+        # Load existing history
+        try:
+            readline.read_history_file(history_file)
+        except FileNotFoundError:
+            pass  # First time, no history file yet
+        
+        # Limit history size
+        readline.set_history_length(1000)
+        
+        # Save history on exit
+        atexit.register(readline.write_history_file, history_file)
+        
+        # Enable tab completion (basic)
+        readline.parse_and_bind('tab: complete')
+        
+        # Enable arrow key navigation
+        readline.parse_and_bind('"\e[A": previous-history')  # Up arrow
+        readline.parse_and_bind('"\e[B": next-history')      # Down arrow
+        readline.parse_and_bind('"\e[C": forward-char')      # Right arrow
+        readline.parse_and_bind('"\e[D": backward-char')     # Left arrow
+        
+        # Enable common editing shortcuts
+        readline.parse_and_bind('"\C-a": beginning-of-line')  # Ctrl+A
+        readline.parse_and_bind('"\C-e": end-of-line')        # Ctrl+E
+        readline.parse_and_bind('"\C-k": kill-line')          # Ctrl+K
+        readline.parse_and_bind('"\C-u": unix-line-discard')  # Ctrl+U
+        readline.parse_and_bind('"\C-h": "help\n"')           # Ctrl+H for help
+        
+        print("✅ Command history enabled (↑↓ arrows, Ctrl+A/E/K/U)")
+        
+    except ImportError:
+        print("⚠️  Readline not available - arrow key history disabled")
+    except Exception as e:
+        print(f"⚠️  History setup failed: {e}")
+
+def show_memory_usage():
+    """Show current memory usage"""
+    try:
+        import psutil
+        process = psutil.Process()
+        memory_mb = process.memory_info().rss / (1024**2)
+        total_memory_gb = psutil.virtual_memory().total / (1024**3)
+        available_memory_gb = psutil.virtual_memory().available / (1024**3)
+        used_percent = psutil.virtual_memory().percent
+        
+        print(f"📊 System Memory: {available_memory_gb:.1f}GB available / {total_memory_gb:.1f}GB total ({100-used_percent:.1f}% free)")
+        print(f"📱 Process Memory: {memory_mb:.1f}MB")
+        
+    except ImportError:
+        print("📊 Memory stats require psutil package")
+    except Exception as e:
+        print(f"📊 Memory stats unavailable: {e}")
+
 def main():
+    # Setup command line history
+    setup_readline()
+    print("\n🚀 MLX Chat Interface")
+    print("=" * 50)
+    
+    # Show memory usage
+    show_memory_usage()
+    
     parser = argparse.ArgumentParser(description="MLX Chat Interface")
     parser.add_argument("--model", default=None, 
                        help="Model to use (if not specified, will show selection menu)")
@@ -293,8 +391,6 @@ def main():
     
     # If no model specified, show selection menu
     if args.model is None:
-        print("🚀 MLX Chat Interface")
-        print("=" * 50)
         args.model = select_model()
         if args.model is None:
             return 0
@@ -336,7 +432,8 @@ def main():
     print(f"\n💬 MLX Chat Session")
     stream_status = "🌊 ON" if args.stream else "⏸️  OFF"
     print(f"⚙️  Settings: temp={args.temp}, max_tokens={args.max_tokens}, stream={stream_status}")
-    print("💡 Type 'help' for commands, 'quit' to exit")
+    print("💡 Type 'help' (or Ctrl+H) for commands, 'quit' to exit")
+    print("🎮 Use ↑↓ arrows for command history")
     print("-" * 60)
     
     # Add system prompt if provided
@@ -355,7 +452,7 @@ def main():
             elif user_input.lower() == 'clear':
                 os.system('clear' if os.name != 'nt' else 'cls')
                 continue
-            elif user_input.lower() == 'help':
+            elif user_input.lower() == 'help' or user_input.lower() == 'h':
                 show_help()
                 continue
             elif user_input.lower() == 'stats':
