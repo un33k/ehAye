@@ -50,10 +50,147 @@ def check_virtual_env():
 check_virtual_env()
 
 from mlx_lm import load, generate
+from mlx_lm.generate import stream_generate
+from mlx_lm.sample_utils import make_sampler
+import os
+from pathlib import Path
+
+def get_installed_models():
+    """Get list of installed models from the MLX cache"""
+    models = []
+    models_dir = Path.home() / ".mlx-cache" / "models"
+    
+    if not models_dir.exists():
+        return models
+    
+    # Category emojis
+    category_emojis = {
+        "tiny": "🔵",
+        "small": "🟢", 
+        "medium": "🟡",
+        "large": "🔴",
+        "code": "💻"
+    }
+    
+    # Category descriptions
+    category_desc = {
+        "tiny": "Tiny Models (< 2B parameters)",
+        "small": "Small Models (2B-3B parameters)",
+        "medium": "Medium Models (3B-8B parameters)", 
+        "large": "Large Models (> 8B parameters)",
+        "code": "Code Models (specialized for programming)"
+    }
+    
+    for category in ["tiny", "small", "medium", "large", "code"]:
+        category_dir = models_dir / category
+        model_list_file = category_dir / ".model_list"
+        
+        if model_list_file.exists() and model_list_file.stat().st_size > 0:
+            emoji = category_emojis.get(category, "📦")
+            desc = category_desc.get(category, category.title())
+            
+            with open(model_list_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("model_id:"):
+                        model_id = line.replace("model_id:", "")
+                        model_name = model_id.split("/")[-1] if "/" in model_id else model_id
+                        
+                        # Extract size info
+                        size_info = ""
+                        if any(size in model_id.lower() for size in ["1b", "2b", "3b", "7b", "13b", "33b", "67b"]):
+                            import re
+                            size_match = re.search(r'(\d+\.?\d*[Bb])', model_id)
+                            if size_match:
+                                size_info = f" ({size_match.group(1).upper()})"
+                        
+                        models.append({
+                            "id": model_id,
+                            "name": model_name,
+                            "category": category,
+                            "emoji": emoji,
+                            "size": size_info,
+                            "display": f"{emoji} {model_name.replace('-', ' ').replace('_', ' ')}{size_info}"
+                        })
+    
+    return models
+
+def select_model():
+    """Let user select from installed models"""
+    models = get_installed_models()
+    
+    if not models:
+        print("❌ No models found!")
+        print("💡 To install models:")
+        print("   ./install-llm.sh -s <pattern>  # Search models")
+        print("   ./install-llm.sh -d <number>   # Download by number")
+        return None
+    
+    print("🤖 Available Models:")
+    print("=" * 50)
+    
+    # Group by category
+    current_category = None
+    model_index = 1
+    
+    for model in models:
+        if model["category"] != current_category:
+            if current_category is not None:
+                print()
+            
+            category_desc = {
+                "tiny": "Tiny Models (< 2B parameters)",
+                "small": "Small Models (2B-3B parameters)",
+                "medium": "Medium Models (3B-8B parameters)",
+                "large": "Large Models (> 8B parameters)",
+                "code": "Code Models (specialized for programming)"
+            }
+            
+            desc = category_desc.get(model["category"], model["category"].title())
+            print(f"{model['emoji']} {desc}:")
+            current_category = model["category"]
+        
+        print(f"  {model_index:2d}. {model['display']}")
+        model_index += 1
+    
+    print()
+    print(f"📊 Total: {len(models)} model(s) available")
+    print()
+    
+    # Get user selection
+    while True:
+        try:
+            try:
+                choice = input(f"Select model (1-{len(models)}) or 'q' to quit: ").strip()
+            except EOFError:
+                print("\n👋 Goodbye!")
+                return None
+            
+            if choice.lower() == 'q':
+                return None
+            
+            choice_num = int(choice)
+            if 1 <= choice_num <= len(models):
+                selected_model = models[choice_num - 1]
+                print(f"✅ Selected: {selected_model['display']}")
+                print(f"📦 Model ID: {selected_model['id']}")
+                return selected_model['id']
+            else:
+                print(f"⚠️  Please enter a number between 1 and {len(models)}")
+                
+        except ValueError:
+            print("⚠️  Please enter a valid number or 'q' to quit")
+        except KeyboardInterrupt:
+            print("\n👋 Goodbye!")
+            return None
 
 def get_default_model():
     """Get a reasonable default model based on available models"""
-    # Check for common models in order of preference
+    models = get_installed_models()
+    if models:
+        return models[0]['id']  # Return first available model
+    
+    # Fallback to common models
     candidate_models = [
         "mlx-community/Mistral-7B-Instruct-v0.1-4bit-mlx",
         "mlx-community/phi-2-MLX",
@@ -71,6 +208,12 @@ def format_chat_prompt(message, model_name=""):
         return f"### Human: {message}\n### Assistant:"
     elif "phi" in model_name.lower():
         return f"Human: {message}\nAssistant:"
+    elif "deepseek" in model_name.lower():
+        return f"User: {message}\n\nAssistant:"
+    elif "qwen" in model_name.lower():
+        return f"<|im_start|>user\n{message}<|im_end|>\n<|im_start|>assistant\n"
+    elif "gemma" in model_name.lower():
+        return f"<start_of_turn>user\n{message}<end_of_turn>\n<start_of_turn>model\n"
     else:
         return message
 
@@ -103,6 +246,7 @@ def show_help():
    temp <value>    - Change temperature (0.1-2.0)
    tokens <value>  - Change max tokens (1-2048)
    model           - Show current model info
+   stream          - Toggle streaming mode on/off
    """)
 
 def show_stats():
@@ -131,16 +275,33 @@ def show_stats():
 
 def main():
     parser = argparse.ArgumentParser(description="MLX Chat Interface")
-    parser.add_argument("--model", default=get_default_model(), 
-                       help="Model to use")
+    parser.add_argument("--model", default=None, 
+                       help="Model to use (if not specified, will show selection menu)")
     parser.add_argument("--max-tokens", type=int, default=512,
                        help="Maximum tokens to generate")
     parser.add_argument("--temp", type=float, default=0.7,
                        help="Temperature for generation")
     parser.add_argument("--system", default="",
                        help="System prompt (optional)")
+    parser.add_argument("--no-stream", action="store_true", default=False,
+                       help="Generate full response at once (default: streaming enabled)")
     
     args = parser.parse_args()
+    
+    # Set streaming based on --no-stream flag
+    args.stream = not args.no_stream
+    
+    # If no model specified, show selection menu
+    if args.model is None:
+        print("🚀 MLX Chat Interface")
+        print("=" * 50)
+        args.model = select_model()
+        if args.model is None:
+            return 0
+        print()
+    else:
+        # Use provided model
+        pass
     
     # Validate parameters
     if args.temp < 0.1 or args.temp > 2.0:
@@ -173,7 +334,8 @@ def main():
     print_model_info(args.model)
     
     print(f"\n💬 MLX Chat Session")
-    print(f"⚙️  Settings: temp={args.temp}, max_tokens={args.max_tokens}")
+    stream_status = "🌊 ON" if args.stream else "⏸️  OFF"
+    print(f"⚙️  Settings: temp={args.temp}, max_tokens={args.max_tokens}, stream={stream_status}")
     print("💡 Type 'help' for commands, 'quit' to exit")
     print("-" * 60)
     
@@ -201,6 +363,11 @@ def main():
                 continue
             elif user_input.lower() == 'model':
                 print_model_info(args.model)
+                continue
+            elif user_input.lower() == 'stream':
+                args.stream = not args.stream
+                stream_status = "🌊 ON" if args.stream else "⏸️  OFF"
+                print(f"🔄 Streaming mode: {stream_status}")
                 continue
             elif user_input.lower().startswith('temp '):
                 try:
@@ -235,28 +402,52 @@ def main():
             # Generate response with timing
             start_time = time.time()
             try:
-                response = generate(
-                    model, tokenizer, 
-                    prompt=formatted_prompt,
-                    max_tokens=args.max_tokens,
-                    temp=args.temp,
-                    verbose=False
-                )
+                # Create sampler with temperature
+                sampler = make_sampler(temp=args.temp)
+                
+                if args.stream:
+                    # Streaming generation
+                    response_tokens = []
+                    for chunk in stream_generate(
+                        model, tokenizer, 
+                        prompt=formatted_prompt,
+                        max_tokens=args.max_tokens,
+                        sampler=sampler
+                    ):
+                        # Print token as it's generated
+                        token_text = chunk.text
+                        print(token_text, end="", flush=True)
+                        response_tokens.append(token_text)
+                    
+                    # Combine all tokens for the full response
+                    response = "".join(response_tokens)
+                    print()  # New line after streaming
+                    
+                else:
+                    # Non-streaming generation
+                    response = generate(
+                        model, tokenizer, 
+                        prompt=formatted_prompt,
+                        max_tokens=args.max_tokens,
+                        sampler=sampler,
+                        verbose=False
+                    )
+                    
+                    # Clean up response formatting
+                    if formatted_prompt in response:
+                        response = response.replace(formatted_prompt, "").strip()
+                    
+                    print(response)
                 
                 generation_time = time.time() - start_time
-                
-                # Clean up response formatting
-                if formatted_prompt in response:
-                    response = response.replace(formatted_prompt, "").strip()
-                
-                print(response)
                 
                 # Show generation stats
                 words = len(response.split())
                 tokens_estimated = len(response.split()) * 1.3  # Rough estimate
                 tokens_per_sec = tokens_estimated / generation_time if generation_time > 0 else 0
                 
-                print(f"\n⚡ Generated {words} words in {generation_time:.2f}s ({tokens_per_sec:.1f} tokens/sec)")
+                stream_indicator = "🌊" if args.stream else "⚡"
+                print(f"\n{stream_indicator} Generated {words} words in {generation_time:.2f}s ({tokens_per_sec:.1f} tokens/sec)")
                 
             except Exception as e:
                 print(f"❌ Generation error: {e}")
