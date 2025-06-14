@@ -30,7 +30,7 @@ show_help() {
 Setup and activate virtualenv using pyenv
 
 USAGE:
-    source ./install-venv.sh [VERSION] [OPTIONS]
+    source ./venv.sh [VERSION] [OPTIONS]
 
 ARGUMENTS:
     VERSION     Python version to use (default: $DEFAULT_PYTHON_VERSION)
@@ -41,10 +41,10 @@ OPTIONS:
     --help      Show this help message
 
 EXAMPLES:
-    source ./install-venv.sh                        # Default version, pyenv virtualenv
-    source ./install-venv.sh 3.10.8                 # Specific version, pyenv virtualenv  
-    source ./install-venv.sh --d ./venv             # Default version, local directory
-    source ./install-venv.sh 3.10.8 --d ./venv -y   # All options combined
+    source ./venv.sh                        # Default version, pyenv virtualenv
+    source ./venv.sh 3.10.8                 # Specific version, pyenv virtualenv  
+    source ./venv.sh --d ./venv             # Default version, local directory
+    source ./venv.sh 3.10.8 --d ./venv -y   # All options combined
 
 EOF
 }

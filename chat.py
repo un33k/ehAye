@@ -24,7 +24,7 @@ def check_virtual_env():
             print("")
             print("💡 To fix this:")
             print("   1. Run: source .venv/bin/activate") 
-            print("   2. Or run: ./install-venv.sh")
+            print("   2. Or run: ./venv.sh")
             print("   3. Then run this script again")
             sys.exit(1)
     
@@ -124,8 +124,8 @@ def select_model():
     if not models:
         print("❌ No models found!")
         print("💡 To install models:")
-        print("   ./install-llm.sh -s <pattern>  # Search models")
-        print("   ./install-llm.sh -d <number>   # Download by number")
+        print("   ./llm.sh -s <pattern>  # Search models")
+        print("   ./llm.sh -d <number>   # Download by number")
         return None
     
     print("🤖 Available Models:")

@@ -16,7 +16,7 @@ if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
     cat << EOF
 🔥 MLX Installation Script for macOS
 
-Usage: ./install-mlx.sh [OPTIONS]
+Usage: ./mlx.sh [OPTIONS]
 
 Description:
     Complete MLX setup for optimal LLM performance on Apple Silicon Macs.
@@ -25,15 +25,16 @@ Description:
 
 Options:
     -h, --help    Show this help message and exit
+    -m, --monitor Monitor MLX performance and environment
 
 Features:
     • System requirements check (RAM, disk, chip detection)
     • GPU memory optimization based on total RAM
     • Homebrew and build dependencies installation
-    • Python virtual environment setup (via install-venv.sh)
+    • Python virtual environment setup (via venv.sh)
     • MLX and machine learning packages installation
     • Performance optimization configuration
-    • Model management setup (via install-llm.sh)
+    • Model management setup (via llm.sh)
     • Usage scripts preparation
 
 Prerequisites:
@@ -42,16 +43,92 @@ Prerequisites:
     • 50GB+ free disk space
 
 Examples:
-    ./install-mlx.sh         # Full MLX installation
-    ./install-mlx.sh -h      # Show this help
+    ./mlx.sh         # Full MLX installation
+    ./mlx.sh -h      # Show this help
+    ./mlx.sh -m      # Monitor MLX performance
 
 Post-installation:
     1. Restart terminal (for GPU settings)
     2. Activate environment: source .venv/bin/activate
-    3. Load optimizations: source mlx-env.sh
-    4. Download models: ./install-llm.sh setup
+    3. Monitor performance: ./mlx.sh -m
+    4. Download models: ./llm.sh setup
     5. Start chatting: python chat.py
 EOF
+    return 0 2>/dev/null || exit 0
+fi
+
+# --- MLX Monitor Functions ---
+mlx_env_status() {
+    echo "🔥 MLX Environment Status:"
+    echo "   Cache Dir: ${MLX_CACHE_DIR:-$HOME/.mlx-cache/mlx}"
+    echo "   Models Dir: ${MLX_MODELS_DIR:-$HOME/.mlx-cache/models}"
+    echo "   HF Cache: ${HF_HOME:-$HOME/.mlx-cache/huggingface}"
+    echo "   GPU Memory: $(sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo 'Not Available')MB"
+    echo "   Memory Pool: ${MLX_MEMORY_POOL:-Not Set}"
+    echo "   Threads (OMP): ${OMP_NUM_THREADS:-Not Set}"
+    echo "   Python Virtual Env: ${VIRTUAL_ENV:-Not Active}"
+    
+    # Check system memory
+    local total_mem=$(sysctl -n hw.memsize 2>/dev/null | awk '{print int($1/1024/1024/1024)}')
+    local available_mem=$(vm_stat | awk '/Pages free/ {free=$3} /Pages inactive/ {inactive=$3} END {print int((free+inactive)*4096/1024/1024/1024)}')
+    echo "   System Memory: ${available_mem:-Unknown}GB available / ${total_mem:-Unknown}GB total"
+}
+
+mlx_monitor() {
+    echo "📊 MLX Performance Monitor"
+    echo "Press Ctrl+C to exit or wait 60 seconds for auto-exit"
+    echo ""
+    
+    local count=0
+    local max_iterations=20  # 20 * 3 seconds = 60 seconds max
+    
+    while [[ $count -lt $max_iterations ]]; do
+        clear
+        echo "🚀 MLX Performance Dashboard - $(date)"
+        echo "======================================"
+        echo "Auto-exit in $((max_iterations - count)) cycles ($(((max_iterations - count) * 3)) seconds)"
+        echo ""
+        
+        # Show environment status
+        mlx_env_status
+        echo ""
+        
+        # Show top Python/MLX processes
+        echo "🔥 Active MLX Processes:"
+        if command -v ps >/dev/null 2>&1; then
+            ps aux | grep -E "(python|mlx)" | grep -v grep | grep -v "mlx.sh -m" | head -3 | while read line; do
+                echo "   $line"
+            done
+        else
+            echo "   ps command not available"
+        fi
+        
+        echo ""
+        echo "💾 Memory Usage:"
+        if command -v vm_stat >/dev/null 2>&1; then
+            vm_stat | head -3
+        else
+            echo "   vm_stat not available"
+        fi
+        
+        echo ""
+        echo "🔄 Refreshing in 3 seconds... (Ctrl+C to exit now)"
+        
+        # Use timeout with sleep to allow interruption
+        if ! timeout 3 sleep 3 2>/dev/null; then
+            sleep 3
+        fi
+        
+        ((count++))
+    done
+    
+    echo ""
+    echo "⏰ Monitor session completed (60 second auto-exit)"
+}
+
+# Handle monitor flag
+if [[ "${1:-}" == "-m" ]] || [[ "${1:-}" == "--monitor" ]]; then
+    mlx_monitor
     return 0 2>/dev/null || exit 0
 fi
 
@@ -186,17 +263,17 @@ install_dependencies() {
     
     # Check for Homebrew and install if needed
     if ! command -v brew &> /dev/null; then
-        echo "🍺 Homebrew not found. Using install-brew.sh..."
-        if [[ -f "install-brew.sh" ]]; then
-            if chmod +x install-brew.sh && ./install-brew.sh; then
-                echo "✅ Homebrew setup completed via install-brew.sh"
+        echo "🍺 Homebrew not found. Using brew.sh..."
+        if [[ -f "brew.sh" ]]; then
+            if chmod +x brew.sh && ./brew.sh; then
+                echo "✅ Homebrew setup completed via brew.sh"
             else
-                echo "❌ install-brew.sh failed"
-                echo "💡 Try running: ./install-brew.sh"
+                echo "❌ brew.sh failed"
+                echo "💡 Try running: ./brew.sh"
                 exit 1
             fi
         else
-            echo "❌ install-brew.sh not found"
+            echo "❌ brew.sh not found"
             echo "💡 Installing Homebrew directly for Apple Silicon Mac..."
             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             
@@ -240,12 +317,12 @@ install_dependencies() {
 setup_python_venv() {
     echo "🐍 Setting up Python environment for MLX..."
     
-    # Check if install-venv.sh exists and use it
-    echo "📦 Using install-venv.sh for Python and virtual environment setup..."
-    if chmod +x install-venv.sh && ./install-venv.sh 3.11 -y --d ./.venv; then
-        echo "✅ Python environment setup completed via install-venv.sh"
+    # Check if venv.sh exists and use it
+    echo "📦 Using venv.sh for Python and virtual environment setup..."
+    if chmod +x venv.sh && ./venv.sh 3.11 -y --d ./.venv; then
+        echo "✅ Python environment setup completed via venv.sh"
     else
-        echo "❌ install-env.sh failed, please try to run it manual"
+        echo "❌ venv.sh failed, please try to run it manual"
     fi
 
     # Ensure virtual environment is activated
@@ -269,7 +346,7 @@ setup_python_venv() {
         echo ""
         echo "💡 To fix this:"
         echo "   1. Run: source .venv/bin/activate"
-        echo "   2. Or run: ./install-venv.sh"
+        echo "   2. Or run: ./venv.sh"
         echo "   3. Then re-run this installer"
         exit 1
     fi
@@ -308,7 +385,7 @@ install_mlx() {
         echo ""
         echo "💡 To fix this:"
         echo "   1. Run: source .venv/bin/activate"
-        echo "   2. Or run: ./install-venv.sh"
+        echo "   2. Or run: ./venv.sh"
         echo "   3. Then re-run this installer"
         exit 1
     fi
@@ -354,55 +431,33 @@ apply_performance_optimizations() {
     
     echo "🔧 Optimizing for ${CPU_CORES}-core ${CHIP_TYPE} processor"
     
-    # Configure the existing mlx-env.sh template
-    if [[ -f "mlx-env.sh" ]]; then
-        echo "📝 Configuring mlx-env.sh template..."
-        
-        # Calculate cache size (10% of RAM)
-        CACHE_SIZE_MB=$((MEM_TOTAL_GB * 100))
-        
-        # Replace placeholders in the template
-        sed -i.bak \
-            -e "s/__CACHE_SIZE_MB__/$CACHE_SIZE_MB/g" \
-            -e "s/__CPU_CORES__/$CPU_CORES/g" \
-            -e "s/__CHIP_TYPE__/$CHIP_TYPE/g" \
-            mlx-env.sh
-        
-        # Update RAM-specific optimizations based on system memory
-        if [[ $MEM_TOTAL_GB -ge 64 ]]; then
-            # High-memory system optimizations
-            sed -i.bak \
-                -e 's/export MLX_BATCH_SIZE=.*/export MLX_BATCH_SIZE=32/' \
-                -e 's/export MLX_MAX_SEQUENCE_LENGTH=.*/export MLX_MAX_SEQUENCE_LENGTH=8192/' \
-                mlx-env.sh
-            echo "export MLX_PRELOAD_MODELS=1" >> mlx-env.sh
-        elif [[ $MEM_TOTAL_GB -ge 32 ]]; then
-            # Medium-memory system optimizations
-            sed -i.bak \
-                -e 's/export MLX_BATCH_SIZE=.*/export MLX_BATCH_SIZE=16/' \
-                -e 's/export MLX_MAX_SEQUENCE_LENGTH=.*/export MLX_MAX_SEQUENCE_LENGTH=4096/' \
-                mlx-env.sh
-        else
-            # Low-memory system optimizations (keep defaults)
-            echo "export MLX_OFFLOAD_INACTIVE=1" >> mlx-env.sh
-        fi
-        
-        # Remove backup file
-        rm -f mlx-env.sh.bak
-        
-        echo "✅ mlx-env.sh configured successfully"
+    # Set up optimized MLX environment variables
+    echo "📝 Configuring MLX environment for ${CPU_CORES}-core ${CHIP_TYPE}..."
+    
+    # Calculate cache size (10% of RAM)
+    CACHE_SIZE_MB=$((MEM_TOTAL_GB * 100))
+    
+    echo "   Cache size: ${CACHE_SIZE_MB}MB"
+    echo "   GPU memory: $(sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo 'Unknown')MB"
+    
+    if [[ $MEM_TOTAL_GB -ge 64 ]]; then
+        echo "   🚀 High-memory optimizations enabled"
+    elif [[ $MEM_TOTAL_GB -ge 32 ]]; then
+        echo "   ⚡ Medium-memory optimizations enabled"
     else
-        echo "❌ mlx-env.sh template not found"
+        echo "   💾 Conservative memory settings"
     fi
     
-    echo "✅ Performance optimization files ready:"
-    echo "   📄 mlx-env.sh - Configured environment variables"
+    echo "✅ MLX environment optimized for your system"
+    
+    echo "✅ Performance optimization complete:"
+    echo "   🔥 MLX environment - Optimized for your system"
     echo "   🧪 performance-test.py - Performance test suite"
     echo "   💬 chat.py - Interactive chat interface"
     echo "   📊 benchmark.py - Model benchmarking tool"
     echo ""
     echo "💡 Usage:"
-    echo "   source mlx-env.sh           # Load optimizations"
+    echo "   ./mlx.sh -m                 # Monitor performance"
     echo "   python performance-test.py  # Test performance"
     echo "   python chat.py              # Start chatting"
     echo "   python benchmark.py         # Run benchmarks"
@@ -412,18 +467,18 @@ apply_performance_optimizations() {
 setup_models() {
     echo "🤖 Setting up model management..."
     
-    # Check if install-llm.sh exists and use it
-    if [[ -f "install-llm.sh" ]]; then
-        echo "📦 Using install-llm.sh for model management..."
-        if chmod +x install-llm.sh && ./install-llm.sh setup; then
-            echo "✅ Model setup completed via install-llm.sh"
+    # Check if llm.sh exists and use it
+    if [[ -f "llm.sh" ]]; then
+        echo "📦 Using llm.sh for model management..."
+        if chmod +x llm.sh && ./llm.sh setup; then
+            echo "✅ Model setup completed via llm.sh"
         else
-            echo "❌ install-llm.sh failed"
-            echo "💡 Try running: ./install-llm.sh setup"
+            echo "❌ llm.sh failed"
+            echo "💡 Try running: ./llm.sh setup"
         fi
     else
-        echo "❌ install-llm.sh not found"
-        echo "💡 Model management has been moved to install-llm.sh"
+        echo "❌ llm.sh not found"
+        echo "💡 Model management has been moved to llm.sh"
         echo "   Create that file or run model downloads manually"
     fi
 }
@@ -433,7 +488,7 @@ prepare_usage_scripts() {
     echo "📝 Preparing usage scripts..."
     
     # Verify all required scripts exist
-    REQUIRED_SCRIPTS=("chat.py" "benchmark.py" "performance-test.py" "mlx-manager.py")
+    REQUIRED_SCRIPTS=("chat.py" "benchmark.py" "performance-test.py")
     MISSING_SCRIPTS=()
     
     for script in "${REQUIRED_SCRIPTS[@]}"; do
@@ -449,13 +504,12 @@ prepare_usage_scripts() {
     fi
     
     # Make sure all scripts are executable
-    chmod +x chat.py benchmark.py performance-test.py mlx-manager.py
+    chmod +x chat.py benchmark.py performance-test.py
     
     echo "✅ All usage scripts are ready:"
     echo "   💬 chat.py - Interactive chat interface"
     echo "   📊 benchmark.py - Model benchmarking tool"
     echo "   🧪 performance-test.py - Performance test suite"
-    echo "   🛠️  mlx-manager.py - Advanced model management"
 }
 
 # --- Main Installation Process ---
@@ -478,15 +532,15 @@ main() {
     echo "📋 Next steps:"
     echo "1. Restart your terminal to apply GPU memory settings"
     echo "2. Activate environment: source .venv/bin/activate"
-    echo "3. Load optimizations: source mlx-env.sh"
-    echo "4. Download models: ./install-llm.sh setup"
+    echo "3. Monitor performance: ./mlx.sh -m"
+    echo "4. Download models: ./llm.sh setup"
     echo "5. Start chatting: python chat.py"
     echo "6. Run benchmark: python benchmark.py"
     echo ""
     echo "💡 Model management:"
-    echo "   • Download models: ./install-llm.sh setup"
-    echo "   • List models: ./install-llm.sh list"
-    echo "   • Clean up: ./install-llm.sh cleanup"
+    echo "   • Download models: ./llm.sh setup"
+    echo "   • List models: ./llm.sh list"
+    echo "   • Clean up: ./llm.sh cleanup"
     echo ""
     echo "🔥 Enjoy running LLMs with MLX!"
 }

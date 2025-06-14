@@ -1,0 +1,8 @@
+{
+  "cache_dir": "cache",
+  "default_model": null,
+  "performance_logging": true,
+  "auto_cleanup": true,
+  "max_cache_size_gb": 50,
+  "preferred_quantization": "4bit"
+}

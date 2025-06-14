@@ -10,7 +10,7 @@ set -euo pipefail
 # Handle help flag early, before virtual environment check
 if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "help" ]]; then
     cat << EOF
-📖 Usage: ./install-llm.sh [COMMAND] [OPTIONS]
+📖 Usage: ./llm.sh [COMMAND] [OPTIONS]
 
 Commands:
     setup               Setup model directories and download models
@@ -27,20 +27,20 @@ Commands:
     help                Show this help message
 
 Examples:
-    ./install-llm.sh setup             # Initial setup and model download
-    ./install-llm.sh -l                # Show installed models
-    ./install-llm.sh -s mistral        # Search for Mistral models
-    ./install-llm.sh -s deepseek -f coder  # Search DeepSeek models filtered by 'coder'
-    ./install-llm.sh -s llama -f 7B    # Search Llama models filtered by '7B'
-    ./install-llm.sh -d mistral-7b     # Download Mistral 7B model
-    ./install-llm.sh -d 2              # Download model #2 from last search
-    ./install-llm.sh install mlx-community/Meta-Llama-3-8B-Instruct-4bit  # Auto-install
-    ./install-llm.sh -i mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit   # Auto-install short
-    ./install-llm.sh search            # List all available models
-    ./install-llm.sh cleanup           # Clean up cache
+    ./llm.sh setup             # Initial setup and model download
+    ./llm.sh -l                # Show installed models
+    ./llm.sh -s mistral        # Search for Mistral models
+    ./llm.sh -s deepseek -f coder  # Search DeepSeek models filtered by 'coder'
+    ./llm.sh -s llama -f 7B    # Search Llama models filtered by '7B'
+    ./llm.sh -d mistral-7b     # Download Mistral 7B model
+    ./llm.sh -d 2              # Download model #2 from last search
+    ./llm.sh install mlx-community/Meta-Llama-3-8B-Instruct-4bit  # Auto-install
+    ./llm.sh -i mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit   # Auto-install short
+    ./llm.sh search            # List all available models
+    ./llm.sh cleanup           # Clean up cache
 
 💡 Note: Requires virtual environment activation first:
-    source .venv/bin/activate && ./install-llm.sh setup
+    source .venv/bin/activate && ./llm.sh setup
 EOF
     return 0 2>/dev/null || exit 0
 fi
@@ -58,7 +58,7 @@ if [[ -z "${VIRTUAL_ENV:-}" ]] && [[ -z "${CONDA_DEFAULT_ENV:-}" ]]; then
     echo ""
     echo "💡 To fix this:"
     echo "   1. Run: source .venv/bin/activate"
-    echo "   2. Or run: ./install-venv.sh"
+    echo "   2. Or run: ./venv.sh"
     echo "   3. Then re-run this script"
     exit 1
 fi
@@ -239,8 +239,8 @@ search_models() {
             echo "   • Companies: microsoft, meta, google, deepseek"
             echo ""
             echo "📖 Usage examples:"
-            echo "   ./install-llm.sh -s deepseek -f coder"
-            echo "   ./install-llm.sh -s llama -f 7B"
+            echo "   ./llm.sh -s deepseek -f coder"
+            echo "   ./llm.sh -s llama -f 7B"
             return 1
         fi
         
@@ -268,13 +268,13 @@ search_models() {
         done <<< "$hf_results"
     else
         echo "💡 Please specify a search pattern:"
-        echo "   ./install-llm.sh -s <pattern> [-f <flavor>]"
+        echo "   ./llm.sh -s <pattern> [-f <flavor>]"
         echo ""
         echo "📖 Examples:"
-        echo "   ./install-llm.sh -s deepseek        # All DeepSeek models"
-        echo "   ./install-llm.sh -s deepseek -f coder # DeepSeek models with 'coder'"
-        echo "   ./install-llm.sh -s llama -f 7B     # Llama models with '7B'"
-        echo "   ./install-llm.sh -s mistral         # All Mistral models"
+        echo "   ./llm.sh -s deepseek        # All DeepSeek models"
+        echo "   ./llm.sh -s deepseek -f coder # DeepSeek models with 'coder'"
+        echo "   ./llm.sh -s llama -f 7B     # Llama models with '7B'"
+        echo "   ./llm.sh -s mistral         # All Mistral models"
         return 0
     fi
     
@@ -330,12 +330,12 @@ search_models() {
     if [[ -n "$search_pattern" ]]; then
         echo ""
         echo "💡 To download a model:"
-        echo "   ./install-llm.sh -d <number>          # By number from search"
-        echo "   ./install-llm.sh -d <model-id>        # By full model ID"
-        echo "   Example: ./install-llm.sh -d 1        # Download first result"
+        echo "   ./llm.sh -d <number>          # By number from search"
+        echo "   ./llm.sh -d <model-id>        # By full model ID"
+        echo "   Example: ./llm.sh -d 1        # Download first result"
         echo ""
         echo "🔍 Refine your search:"
-        echo "   ./install-llm.sh -s $search_pattern -f <flavor>  # Add flavor filter"
+        echo "   ./llm.sh -s $search_pattern -f <flavor>  # Add flavor filter"
     fi
 }
 
@@ -345,8 +345,8 @@ auto_install_model() {
     
     if [[ -z "$model_id" ]]; then
         echo "❌ Error: Model ID is required for auto-install"
-        echo "💡 Usage: ./install-llm.sh install <full-model-id>"
-        echo "   Example: ./install-llm.sh install mlx-community/Meta-Llama-3-8B-Instruct-4bit"
+        echo "💡 Usage: ./llm.sh install <full-model-id>"
+        echo "   Example: ./llm.sh install mlx-community/Meta-Llama-3-8B-Instruct-4bit"
         return 1
     fi
     
@@ -452,13 +452,13 @@ download_model_by_key() {
     
     if [[ -z "$model_input" ]]; then
         echo "❌ Error: Model name or number is required"
-        echo "💡 Usage: ./install-llm.sh download <model-key>"
-        echo "         ./install-llm.sh -d <model-key>"
-        echo "         ./install-llm.sh -d <number>  # From search results"
+        echo "💡 Usage: ./llm.sh download <model-key>"
+        echo "         ./llm.sh -d <model-key>"
+        echo "         ./llm.sh -d <number>  # From search results"
         echo ""
         echo "🔍 To find available models:"
-        echo "   ./install-llm.sh search"
-        echo "   ./install-llm.sh -s mistral"
+        echo "   ./llm.sh search"
+        echo "   ./llm.sh -s mistral"
         return 1
     fi
     
@@ -466,7 +466,7 @@ download_model_by_key() {
     if [[ "$model_input" =~ ^[0-9]+$ ]]; then
         if [[ ! -f "$LAST_SEARCH_RESULTS_FILE" ]]; then
             echo "❌ Error: No previous search results found"
-            echo "💡 Run a search first: ./install-llm.sh -s <pattern>"
+            echo "💡 Run a search first: ./llm.sh -s <pattern>"
             return 1
         fi
         
@@ -477,7 +477,7 @@ download_model_by_key() {
             local total_results=$(wc -l < "$LAST_SEARCH_RESULTS_FILE" 2>/dev/null || echo "0")
             echo "❌ Error: Invalid model number '$model_input'"
             echo "💡 Available numbers: 1-$total_results"
-            echo "   Run: ./install-llm.sh -s <pattern> to see models"
+            echo "   Run: ./llm.sh -s <pattern> to see models"
             return 1
         fi
         
@@ -532,11 +532,11 @@ download_model_by_key() {
         echo "❌ Error: Model '$model_key' not found or invalid format"
         echo ""
         echo "🔍 To find models:"
-        echo "   ./install-llm.sh -s <search-pattern>"
-        echo "   ./install-llm.sh -s deepseek -f coder"
+        echo "   ./llm.sh -s <search-pattern>"
+        echo "   ./llm.sh -s deepseek -f coder"
         echo ""
         echo "💡 Then download by number:"
-        echo "   ./install-llm.sh -d <number>"
+        echo "   ./llm.sh -d <number>"
         return 1
     fi
     
@@ -746,7 +746,7 @@ list_models() {
     
     if [[ ! -d "$MLX_MODELS_DIR" ]]; then
         echo "❌ No models directory found at ~/.mlx-cache/models"
-        echo "   Run: ./install-llm.sh setup"
+        echo "   Run: ./llm.sh setup"
         exit 1
     fi
     
@@ -797,9 +797,9 @@ list_models() {
         echo ""
         echo "📭 No models installed yet"
         echo "💡 To download models:"
-        echo "   ./install-llm.sh -s <pattern>  # Search available models"
-        echo "   ./install-llm.sh -d <number>   # Download by number"
-        echo "   ./install-llm.sh setup         # Setup with recommended models"
+        echo "   ./llm.sh -s <pattern>  # Search available models"
+        echo "   ./llm.sh -d <number>   # Download by number"
+        echo "   ./llm.sh setup         # Setup with recommended models"
     else
         echo ""
         echo "📊 Total installed models: $total_models"
@@ -921,7 +921,7 @@ cleanup_models() {
 # --- Show Help (redirect to early help) ---
 show_help() {
     # This function exists for compatibility but help is shown earlier
-    echo "Use: ./install-llm.sh --help for detailed help"
+    echo "Use: ./llm.sh --help for detailed help"
 }
 
 # Parse command line arguments
@@ -971,9 +971,8 @@ echo ""
 echo "🎉 Model management completed!"
 echo ""
 echo "💡 Next steps:"
-echo "   • Search models: ./install-llm.sh search [pattern]"
-echo "   • List installed: ./install-llm.sh list"
+echo "   • Search models: ./llm.sh search [pattern]"
+echo "   • List installed: ./llm.sh list"
 echo "   • Start chatting: python chat.py"
 echo "   • Run benchmarks: python benchmark.py"
 echo "   • Run performance tests: python performance-test.py"
-echo "   • Advanced management: python mlx-manager.py"

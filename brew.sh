@@ -112,7 +112,7 @@ show_help() {
     cat << EOF
 🍺 Homebrew Installation Script
 
-Usage: ./install-brew.sh [OPTIONS]
+Usage: ./brew.sh [OPTIONS]
 
 Description:
     Installs and configures Homebrew package manager for macOS.
@@ -129,8 +129,8 @@ Features:
     • Verifies installation is working
 
 Examples:
-    ./install-brew.sh         # Install/update Homebrew
-    ./install-brew.sh -h      # Show this help
+    ./brew.sh         # Install/update Homebrew
+    ./brew.sh -h      # Show this help
 
 After installation:
     • Restart terminal or run: source ~/.zshrc
