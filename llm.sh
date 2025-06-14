@@ -370,6 +370,20 @@ search_models() {
         echo ""
         echo "🔍 Refine your search:"
         echo "   ./llm.sh -s $search_pattern -f <flavor>  # Add flavor filter"
+        echo ""
+        
+        # Ask which model to download
+        read -p "Enter model number to download (or press Enter to skip): " -r model_choice
+        if [[ -n "$model_choice" && "$model_choice" =~ ^[0-9]+$ ]]; then
+            if [[ "$model_choice" -ge 1 && "$model_choice" -le ${#found_models[@]} ]]; then
+                echo ""
+                download_model_by_key "$model_choice"
+            else
+                echo "❌ Invalid model number. Valid range: 1-${#found_models[@]}"
+            fi
+        elif [[ -n "$model_choice" ]]; then
+            echo "❌ Please enter a valid number or press Enter to skip"
+        fi
     fi
 }
 

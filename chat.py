@@ -100,11 +100,10 @@ def get_installed_models():
                         
                         # Extract size info
                         size_info = ""
-                        if any(size in model_id.lower() for size in ["1b", "2b", "3b", "7b", "13b", "33b", "67b"]):
-                            import re
-                            size_match = re.search(r'(\d+\.?\d*[Bb])', model_id)
-                            if size_match:
-                                size_info = f" ({size_match.group(1).upper()})"
+                        import re
+                        size_match = re.search(r'(\d+\.?\d*[Bb])', model_id)
+                        if size_match:
+                            size_info = f" ({size_match.group(1).upper()})"
                         
                         models.append({
                             "id": model_id,
