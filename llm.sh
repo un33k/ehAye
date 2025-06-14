@@ -93,6 +93,9 @@ search_huggingface_models() {
     local filter_flavor="$2"
     
     echo "🔍 Searching Hugging Face for MLX models..."
+    echo "🌐 Model search endpoint: https://huggingface.co/api/models?search=$search_pattern&author=mlx-community&limit=100"
+    echo "📁 Files endpoints will use: https://huggingface.co/api/models/{model_id}/tree/main"
+    echo "⏱️  Rate limiting: 500ms delay between file size requests, max 20 requests"
     
     # Create Python script to search Hugging Face Hub
     cat > /tmp/search_hf_models.py << 'EOF'
@@ -100,6 +103,7 @@ import requests
 import json
 import sys
 import re
+import time
 from urllib.parse import quote
 
 def search_models(query, filter_flavor=None):
@@ -112,6 +116,8 @@ def search_models(query, filter_flavor=None):
         models = response.json()
         
         results = []
+        processed_count = 0
+        max_file_size_requests = 20  # Limit file size requests to avoid rate limiting
         
         for model in models:
             model_id = model.get('id', '')
@@ -151,34 +157,46 @@ def search_models(query, filter_flavor=None):
                 # Skip models with unknown sizes
                 continue
             
-            # Get file size information
+            # Get file size information (with rate limiting)
             file_size = "Unknown"
-            try:
-                files_url = f"https://huggingface.co/api/models/{quote(model_id)}/tree/main"
-                files_response = requests.get(files_url, timeout=10)
-                if files_response.status_code == 200:
-                    files_data = files_response.json()
-                    total_size = 0
+            if processed_count < max_file_size_requests:
+                try:
+                    files_url = f"https://huggingface.co/api/models/{quote(model_id)}/tree/main"
                     
-                    # Sum up all file sizes
-                    for file_info in files_data:
-                        if file_info.get('type') == 'file' and file_info.get('size'):
-                            total_size += file_info['size']
+                    # Add delay to avoid rate limiting
+                    if processed_count > 0:
+                        time.sleep(0.5)  # 500ms delay between requests
                     
-                    # Convert bytes to GB
-                    if total_size > 0:
-                        size_gb = total_size / (1024**3)
-                        if size_gb >= 1:
-                            file_size = f"{size_gb:.1f}G"
-                        else:
-                            size_mb = total_size / (1024**2)
-                            if size_mb >= 100:
-                                file_size = f"{size_mb:.0f}M"
+                    files_response = requests.get(files_url, timeout=10)
+                    
+                    if files_response.status_code == 200:
+                        files_data = files_response.json()
+                        total_size = 0
+                        
+                        # Sum up all file sizes
+                        for file_info in files_data:
+                            if file_info.get('type') == 'file' and file_info.get('size'):
+                                total_size += file_info['size']
+                        
+                        # Convert bytes to GB
+                        if total_size > 0:
+                            size_gb = total_size / (1024**3)
+                            if size_gb >= 1:
+                                file_size = f"{size_gb:.1f}G"
                             else:
-                                file_size = f"{size_mb:.1f}M"
-            except:
-                # If file size fetch fails, continue without it
-                pass
+                                size_mb = total_size / (1024**2)
+                                if size_mb >= 100:
+                                    file_size = f"{size_mb:.0f}M"
+                                else:
+                                    file_size = f"{size_mb:.1f}M"
+                        processed_count += 1
+                    elif files_response.status_code == 429:
+                        # Rate limited - skip remaining file size requests
+                        print("Rate limited - skipping remaining file size requests", file=sys.stderr)
+                        processed_count = max_file_size_requests
+                except:
+                    # If file size fetch fails, continue without it
+                    pass
             
             # Only add models with known sizes
             if size != "Unknown":
@@ -212,7 +230,7 @@ if __name__ == "__main__":
 EOF
     
     # Run the search
-    python /tmp/search_hf_models.py "$search_pattern" "$filter_flavor" 2>/dev/null
+    python /tmp/search_hf_models.py "$search_pattern" "$filter_flavor"
     local exit_code=$?
     
     # Clean up

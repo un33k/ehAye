@@ -116,23 +116,26 @@ def test_environment_vars():
     """Test environment variable setup"""
     print("🧪 Testing environment variables...")
     
-    required_vars = [
-        'MLX_CACHE_DIR', 'MLX_MODELS_DIR', 'OMP_NUM_THREADS',
-        'HF_HOME', 'MLX_MEMORY_POOL'
-    ]
-    
-    missing_vars = []
-    for var in required_vars:
-        if var not in os.environ:
-            missing_vars.append(var)
-    
-    if missing_vars:
-        print(f"❌ Missing environment variables: {', '.join(missing_vars)}")
-        print("💡 Run: source mlx_env.sh")
+    try:
+        from mlx_config import mlx_config, ensure_mlx_environment
+        
+        missing_vars = mlx_config.check_environment()
+        
+        if missing_vars:
+            print(f"⚠️  Missing environment variables: {', '.join(missing_vars)}")
+            print("🔧 Auto-configuring from mlx-config.json...")
+            ensure_mlx_environment()
+            print("✅ Environment variables configured")
+            print("💡 For permanent setup, run: source mlx_env.sh")
+            return True
+        else:
+            print("✅ All environment variables set correctly")
+            return True
+            
+    except Exception as e:
+        print(f"❌ Configuration error: {e}")
+        print("💡 Check mlx-config.json exists and is valid")
         return False
-    else:
-        print("✅ All environment variables set correctly")
-        return True
 
 def test_gpu_memory_allocation():
     """Test GPU memory allocation"""
