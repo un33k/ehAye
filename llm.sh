@@ -151,6 +151,35 @@ def search_models(query, filter_flavor=None):
                 # Skip models with unknown sizes
                 continue
             
+            # Get file size information
+            file_size = "Unknown"
+            try:
+                files_url = f"https://huggingface.co/api/models/{quote(model_id)}/tree/main"
+                files_response = requests.get(files_url, timeout=10)
+                if files_response.status_code == 200:
+                    files_data = files_response.json()
+                    total_size = 0
+                    
+                    # Sum up all file sizes
+                    for file_info in files_data:
+                        if file_info.get('type') == 'file' and file_info.get('size'):
+                            total_size += file_info['size']
+                    
+                    # Convert bytes to GB
+                    if total_size > 0:
+                        size_gb = total_size / (1024**3)
+                        if size_gb >= 1:
+                            file_size = f"{size_gb:.1f}G"
+                        else:
+                            size_mb = total_size / (1024**2)
+                            if size_mb >= 100:
+                                file_size = f"{size_mb:.0f}M"
+                            else:
+                                file_size = f"{size_mb:.1f}M"
+            except:
+                # If file size fetch fails, continue without it
+                pass
+            
             # Only add models with known sizes
             if size != "Unknown":
                 results.append({
@@ -158,6 +187,7 @@ def search_models(query, filter_flavor=None):
                     'name': model_name,
                     'category': category,
                     'size': size,
+                    'file_size': file_size,
                     'downloads': downloads,
                     'tags': tags
                 })
@@ -178,7 +208,7 @@ if __name__ == "__main__":
     models = search_models(query, flavor)
     
     for model in models:
-        print(f"{model['id']}:{model['category']}:{model['size']}:{model['name']} - {model['downloads']} downloads")
+        print(f"{model['id']}:{model['category']}:{model['size']}:{model['file_size']}:{model['name']} - {model['downloads']} downloads")
 EOF
     
     # Run the search
@@ -250,7 +280,7 @@ search_models() {
             # Skip lines that don't look like model results
             [[ "$line" == *"Searching Hugging Face"* ]] && continue
             [[ "$line" != *":"* ]] && continue
-            IFS=':' read -r model_id category size description <<< "$line"
+            IFS=':' read -r model_id category size file_size description <<< "$line"
             
             # Function to format size for sorting
             size_sort_key() {
@@ -264,7 +294,7 @@ search_models() {
             
             local size_key=$(size_sort_key "$size")
             local model_key=$(basename "$model_id")
-            found_models+=("$category|$size_key|$model_key|$model_id:$category:$size:$description")
+            found_models+=("$category|$size_key|$model_key|$model_id:$category:$size:$file_size:$description")
         done <<< "$hf_results"
     else
         echo "💡 Please specify a search pattern:"
@@ -295,7 +325,7 @@ search_models() {
     
     for model_entry in "${found_models[@]}"; do
         IFS='|' read -r cat size_key model_key model_info <<< "$model_entry"
-        IFS=':' read -r model_id category size description <<< "$model_info"
+        IFS=':' read -r model_id category size file_size description <<< "$model_info"
         
         # Print category header
         if [[ "$category" != "$current_category" ]]; then
@@ -313,7 +343,11 @@ search_models() {
         # Print model info in requested format
         count=$((count + 1))
         local org_name=$(echo "$model_id" | cut -d'/' -f1)
-        printf "  %2d. (%s) %s [%s]\n" "$count" "$size" "$model_key" "$org_name"
+        if [[ "$file_size" != "Unknown" ]]; then
+            printf "  %2d. (%s) (%s) %s [%s]\n" "$count" "$size" "$file_size" "$model_key" "$org_name"
+        else
+            printf "  %2d. (%s) %s [%s]\n" "$count" "$size" "$model_key" "$org_name"
+        fi
     done
     
     echo ""
@@ -323,7 +357,7 @@ search_models() {
     > "$LAST_SEARCH_RESULTS_FILE"  # Clear file
     for model_entry in "${found_models[@]}"; do
         IFS='|' read -r cat size_key model_key model_info <<< "$model_entry"
-        IFS=':' read -r model_id category size description <<< "$model_info"
+        IFS=':' read -r model_id category size file_size description <<< "$model_info"
         echo "$model_id" >> "$LAST_SEARCH_RESULTS_FILE"
     done
     

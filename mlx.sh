@@ -51,7 +51,7 @@ Post-installation:
     1. Restart terminal (for GPU settings)
     2. Activate environment: source .venv/bin/activate
     3. Monitor performance: ./mlx.sh -m
-    4. Download models: ./llm.sh setup
+    4. Manage models: ./llm.sh --help
     5. Start chatting: python chat.py
 EOF
     return 0 2>/dev/null || exit 0
@@ -467,19 +467,26 @@ apply_performance_optimizations() {
 setup_models() {
     echo "🤖 Setting up model management..."
     
-    # Check if llm.sh exists and use it
+    # Show llm.sh usage help instead of auto-downloading
     if [[ -f "llm.sh" ]]; then
-        echo "📦 Using llm.sh for model management..."
-        if chmod +x llm.sh && ./llm.sh setup; then
-            echo "✅ Model setup completed via llm.sh"
-        else
-            echo "❌ llm.sh failed"
-            echo "💡 Try running: ./llm.sh setup"
-        fi
+        echo "📦 Model management available via llm.sh"
+        echo "💡 Model Management Commands:"
+        echo "   ./llm.sh setup        # Download recommended models"
+        echo "   ./llm.sh -s <pattern> # Search for models (e.g., deepseek)"
+        echo "   ./llm.sh -s <pattern> -f <flavor>  # Filter search (e.g., coder)"
+        echo "   ./llm.sh -l           # List installed models"
+        echo "   ./llm.sh -i <model>   # Install specific model"
+        echo "   ./llm.sh cleanup      # Clean up cache"
+        echo ""
+        echo "📖 Examples:"
+        echo "   ./llm.sh -s deepseek -f coder  # Find DeepSeek coder models"
+        echo "   ./llm.sh -s llama -f 7B        # Find Llama 7B models"
+        echo "   ./llm.sh -d 1                  # Download model #1 from search"
+        echo ""
+        echo "✅ Model management ready - use commands above to get started"
     else
         echo "❌ llm.sh not found"
-        echo "💡 Model management has been moved to llm.sh"
-        echo "   Create that file or run model downloads manually"
+        echo "💡 Model management requires llm.sh script"
     fi
 }
 
@@ -533,14 +540,15 @@ main() {
     echo "1. Restart your terminal to apply GPU memory settings"
     echo "2. Activate environment: source .venv/bin/activate"
     echo "3. Monitor performance: ./mlx.sh -m"
-    echo "4. Download models: ./llm.sh setup"
+    echo "4. Manage models: ./llm.sh --help"
     echo "5. Start chatting: python chat.py"
     echo "6. Run benchmark: python benchmark.py"
     echo ""
     echo "💡 Model management:"
-    echo "   • Download models: ./llm.sh setup"
-    echo "   • List models: ./llm.sh list"
-    echo "   • Clean up: ./llm.sh cleanup"
+    echo "   • Search models: ./llm.sh -s <pattern> [-f <flavor>]"
+    echo "   • Install models: ./llm.sh -d <number> or ./llm.sh -i <model-id>"
+    echo "   • List installed: ./llm.sh -l"
+    echo "   • Get help: ./llm.sh --help"
     echo ""
     echo "🔥 Enjoy running LLMs with MLX!"
 }
