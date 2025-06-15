@@ -273,10 +273,9 @@ def handle_search(backend_obj, manager, params):
         
         for i, model in enumerate(models, 1):
             size_info = f" ({model.size})" if model.size else ""
-            console.print(f"  {i:2d}. {model.name}{size_info}")
+            console.print(f"  {i:2d}. {model.name}{size_info} [-m {model.id}]")
             
             if verbose:
-                console.print(f"      ID: {model.id}")
                 if '[' in (model.description or ''):
                     provider_name = model.description.split(']')[0][1:]
                     console.print(f"      Provider: {provider_name}")
@@ -434,6 +433,7 @@ def handle_info(backend_obj, params):
 
 def select_model_for_download(backend_obj) -> Optional[str]:
     """Interactive model selection for download."""
+    from .base import show_error
     available = backend_obj.search_models()
     
     if not available:
@@ -447,21 +447,35 @@ def select_model_for_download(backend_obj) -> Optional[str]:
         size_info = f" ({model.size})" if model.size else ""
         console.print(f"  {i:2d}. {model.name}{size_info}")
     
-    try:
-        choice = typer.prompt("\nSelect model number", type=int)
-        
-        if 1 <= choice <= len(available):
-            return available[choice - 1].id
-        else:
-            show_error("Invalid selection")
-            return None
+    while True:
+        try:
+            choice_str = typer.prompt("\nSelect model number (or 'q' to quit)")
             
-    except (ValueError, typer.Abort):
-        return None
+            # Handle quit conditions
+            if choice_str.lower().strip() in ['q', 'quit']:
+                console.print("👋 Cancelled")
+                return None
+                
+            try:
+                choice = int(choice_str)
+            except ValueError:
+                show_error("Please enter a valid number or 'q' to quit")
+                continue
+            
+            if 1 <= choice <= len(available):
+                return available[choice - 1].id
+            else:
+                show_error("Invalid selection")
+                continue
+                
+        except typer.Abort:
+            console.print("👋 Cancelled")
+            return None
 
 
 def select_installed_model(backend_obj) -> Optional[str]:
     """Interactive selection of installed model."""
+    from .base import show_error
     models = backend_obj.list_models()
     
     if not models:
@@ -475,17 +489,30 @@ def select_installed_model(backend_obj) -> Optional[str]:
         size_info = f" ({model.size})" if model.size else ""
         console.print(f"  {i:2d}. {model.name}{size_info}")
     
-    try:
-        choice = typer.prompt("\nSelect model number", type=int)
-        
-        if 1 <= choice <= len(models):
-            return models[choice - 1].id
-        else:
-            show_error("Invalid selection")
-            return None
+    while True:
+        try:
+            choice_str = typer.prompt("\nSelect model number (or 'q' to quit)")
             
-    except (ValueError, typer.Abort):
-        return None
+            # Handle quit conditions
+            if choice_str.lower().strip() in ['q', 'quit']:
+                console.print("👋 Cancelled")
+                return None
+                
+            try:
+                choice = int(choice_str)
+            except ValueError:
+                show_error("Please enter a valid number or 'q' to quit")
+                continue
+            
+            if 1 <= choice <= len(models):
+                return models[choice - 1].id
+            else:
+                show_error("Invalid selection")
+                continue
+                
+        except typer.Abort:
+            console.print("👋 Cancelled")
+            return None
 
 
 if __name__ == "__main__":
