@@ -1,19 +1,22 @@
-"""Main Ali CLI entry point with subcommands using Click with Typer integration."""
+"""Main Ali CLI entry point with subcommands using Click."""
 
 import sys
 import logging
 import click
-import subprocess
 from rich.console import Console
 
 # Import subcommand CLIs
 from .ollama_cli import cli as ollama_cli, main as ollama_main
+from .model_cli_typer import app as models_app
+from .chat_cli import app as chat_app  
+from .benchmark_cli import app as benchmark_app
+from .system_cli import app as system_app
 from .base import handle_keyboard_interrupt
 from ..core.logging import ehaye_logger
 
 console = Console()
 
-@click.group(name="ali", help="Ali - Artificial Line Interface for ehAye Local", invoke_without_command=True)
+@click.group(name="ali", help="Ali - Artificial Line Interface", invoke_without_command=True)
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
 @click.option('--debug', '-d', is_flag=True, help='Enable debug output')
 @click.pass_context
@@ -40,42 +43,59 @@ def cli(ctx, verbose, debug):
     if ctx.invoked_subcommand is None:
         console.print(ctx.get_help())
 
-# Add Click-based Ollama CLI
+# Add subcommands by importing and adding them
 cli.add_command(ollama_cli, name="olla")
 
-# Simple delegate commands for Typer-based CLIs
+# Wrapper commands that delegate to Typer apps
 @cli.command(name="mod", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 @click.pass_context
-def mod_delegate(ctx):
-    """Model management"""
-    # Use the legacy model CLI to support flag-based commands like -s -q
-    args = ["python", "-m", "ali.cli.model_cli"] + ctx.args
-    result = subprocess.run(args)
-    ctx.exit(result.returncode)
+def mod_wrapper(ctx):
+    """Model management commands."""
+    import sys
+    # Reconstruct sys.argv for the Typer app
+    original_argv = sys.argv
+    try:
+        # Create argv for the typer app: [script_name, subcommand, *extra_args]
+        sys.argv = [sys.argv[0], "mod"] + ctx.args
+        models_app()
+    finally:
+        sys.argv = original_argv
 
 @cli.command(name="chat", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
-@click.pass_context  
-def chat_delegate(ctx):
-    """Chat interface"""
-    args = ["python", "-m", "ali.cli.chat_cli"] + ctx.args
-    result = subprocess.run(args)
-    ctx.exit(result.returncode)
+@click.pass_context
+def chat_wrapper(ctx):
+    """Chat interface commands."""
+    import sys
+    original_argv = sys.argv
+    try:
+        sys.argv = [sys.argv[0], "chat"] + ctx.args
+        chat_app()
+    finally:
+        sys.argv = original_argv
 
 @cli.command(name="perf", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 @click.pass_context
-def perf_delegate(ctx):
-    """Performance benchmarking"""
-    args = ["python", "-m", "ali.cli.benchmark_cli"] + ctx.args
-    result = subprocess.run(args)  
-    ctx.exit(result.returncode)
+def perf_wrapper(ctx):
+    """Performance benchmarking commands."""
+    import sys
+    original_argv = sys.argv
+    try:
+        sys.argv = [sys.argv[0], "perf"] + ctx.args
+        benchmark_app()
+    finally:
+        sys.argv = original_argv
 
 @cli.command(name="sys", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 @click.pass_context
-def sys_delegate(ctx):
-    """System management"""
-    args = ["python", "-m", "ali.cli.system_cli"] + ctx.args
-    result = subprocess.run(args)
-    ctx.exit(result.returncode)
+def sys_wrapper(ctx):
+    """System management commands."""
+    import sys
+    original_argv = sys.argv
+    try:
+        sys.argv = [sys.argv[0], "sys"] + ctx.args
+        system_app()
+    finally:
+        sys.argv = original_argv
 
 def main():
     """Main entry point for Ali CLI."""

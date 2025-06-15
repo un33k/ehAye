@@ -227,6 +227,19 @@ Curated model lists organized by categories (tiny, small, medium, large, code) w
 ### Environment Configuration (`config/environment.toml`)
 System-specific settings, environment variables, and validation parameters.
 
+## 📚 Model Repositories
+
+For information about free LLM repositories and alternatives to rate-limited platforms, see our comprehensive guide:
+
+**[📖 LLM Model Repositories Guide](docs/llm-repo.md)**
+
+This guide covers:
+- **ModelScope** (Alibaba's platform with 2,300+ models, no download limits)
+- **Ollama Library** (curated models for local execution)
+- **Diffusion Arc** (community-driven, forever free)
+- **GitHub repositories** (research models with verified licenses)
+- Integration recommendations for ehAye Local
+
 ## 🔧 Development
 
 ### Project Structure
