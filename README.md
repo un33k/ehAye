@@ -7,6 +7,7 @@ A modular, professional-grade LLM interface with dual backend support: Ollama fo
 ### Prerequisites
 - macOS with Apple Silicon (M1/M2/M3/M4)
 - Python 3.10 or higher
+- Terminal with 256-color support (recommended)
 
 ### Installation
 
@@ -30,9 +31,20 @@ A modular, professional-grade LLM interface with dual backend support: Ollama fo
    ali olla pull phi3
    ```
 
-4. **Start chatting:**
+4. **Check system info:**
    ```bash
-   ali chat interactive
+   ali sys info                    # View system resources
+   ```
+
+5. **Start chatting:**
+   ```bash
+   ali chat interactive            # Interactive chat session
+   ```
+
+6. **Use direct Ollama commands (NEW!):**
+   ```bash
+   ali olla -- --version          # Pass commands directly to Ollama
+   ali olla -- show phi3          # Use any Ollama command seamlessly
    ```
 
 ## ⚡ Quick CLI Usage
@@ -63,16 +75,22 @@ ali perf compare --all               # Compare all models
 ali perf validate                    # Check environment
 
 # System management
-ali sys info                         # System information
+ali sys info                         # System information (CPU, GPU, Memory)
 ali sys validate                     # Environment validation
 ali sys config                      # Show configuration
 ali sys setup                       # Initialize system
+ali sys cleanup --logs --cache       # Clean up files
 
 # Direct Ollama operations
 ali olla pull phi3                   # Download via Ollama
 ali olla run phi3                    # Chat via Ollama
 ali olla list                        # List Ollama models
 ali olla start                       # Start Ollama service
+
+# Direct parameter passthrough to Ollama
+ali olla -- --version               # Pass --version directly to ollama
+ali olla -- --help                  # Pass --help directly to ollama  
+ali olla -- create mymodel -f Modelfile  # Pass complex commands directly
 ```
 
 ### Direct Ollama Operations
@@ -83,6 +101,13 @@ ali olla list                         # List models
 ali olla start                        # Start service
 ali olla stop                         # Stop service
 ali olla ps                           # Show running processes
+
+# Direct parameter passthrough (NEW!)
+ali olla -- --version                # Get Ollama version
+ali olla -- --help                   # Get Ollama help
+ali olla -- create mymodel -f Modelfile  # Create model from Modelfile
+ali olla -- show phi3 --modelfile    # Show model with specific options
+ali olla -- ps                       # Direct ps command
 ```
 
 ## 🏗️ Architecture
@@ -147,6 +172,12 @@ ali olla stop                       # Stop Ollama service
 ali olla ps                         # Show running processes
 ali olla remove phi3                # Remove model
 ali olla info phi3                  # Show model info
+
+# Direct parameter passthrough to Ollama (NEW!)
+ali olla -- --version              # Get Ollama version directly
+ali olla -- --help                 # Get Ollama help directly
+ali olla -- create mymodel -f Modelfile  # Pass complex commands
+ali olla -- show phi3 --modelfile  # Use Ollama-specific options
 ```
 
 ### Performance Benchmarking
@@ -158,10 +189,12 @@ ali perf validate                   # Check environment
 
 ### System Management
 ```bash
-ali sys info                        # System information
+ali sys info                        # Detailed system information
 ali sys validate                    # Environment validation
-ali sys config                     # Show configuration
+ali sys config --paths             # Show configured paths
+ali sys config --env               # Show environment variables
 ali sys setup                      # Initialize system
+ali sys cleanup --logs --cache      # Clean up system files
 ```
 
 ## ⚙️ Configuration
@@ -214,6 +247,11 @@ pytest                      # Run all tests
 pytest tests/unit/          # Unit tests only
 pytest tests/integration/   # Integration tests only
 pytest -v --cov=ali        # With coverage
+
+# Test specific functionality
+ali sys validate            # Test system environment
+ali mod list                # Test model detection
+ali sys info                # Test system information
 ```
 
 ### Code Quality
@@ -233,22 +271,35 @@ mypy ali/                   # Type checking
 
 ## 📊 Features
 
+### Enhanced CLI Experience
+- **Clean Interface**: No verbose logging by default
+- **Debug Modes**: Use `--verbose` or `--debug` for detailed output
+- **Rich Display**: Beautiful terminal output with aligned formatting
+- **System Info**: Comprehensive hardware information including GPU cores
+
 ### Chat Interface
 - Interactive multi-turn conversations
 - Streaming responses with real-time display
 - Model-specific prompt formatting
-- Conversation history and persistence
+- Clean error handling without log spam
 - Rich terminal output with syntax highlighting
 
 ### Model Management
 - **Dual Backend Support**: Ollama and MLX backends with unified interface
 - **Rate Limit Avoidance**: Ollama backend bypasses Hugging Face restrictions
+- **Clean Error Handling**: User-friendly messages without debug spam
 - Automatic model categorization and metadata
 - Intelligent caching and cleanup
 - Model search and filtering with short aliases
 - Size estimation and resource planning
 - Registry-based tracking for both backends
-- Convenient CLI with both full commands and single-letter shortcuts
+
+### Direct Ollama Integration
+- **Parameter Passthrough**: Use `ali olla -- <params>` to pass any Ollama command directly
+- **Full Ollama Compatibility**: Access all Ollama features without switching tools
+- **Seamless Workflow**: Mix ehAye commands with native Ollama operations
+- **No Learning Curve**: Use familiar Ollama syntax within ehAye Local
+- **Advanced Features**: Access Ollama's latest features immediately
 
 ### Performance Benchmarking
 - Comprehensive performance metrics
@@ -258,11 +309,12 @@ mypy ali/                   # Type checking
 - Export results to JSON
 
 ### System Integration
-- macOS-specific optimizations
-- GPU memory management
-- Thermal state monitoring
-- Environment validation
-- Automatic directory setup
+- **Apple Silicon Optimization**: M1/M2/M3/M4 specific features
+- **GPU Information**: Core count and allocated memory detection
+- **Thermal Monitoring**: Real-time thermal state tracking
+- **Environment Validation**: Comprehensive system checks
+- **Clean Logging**: Debug info only when requested
+- Automatic directory setup and configuration
 
 ## 🚦 Requirements
 
@@ -280,15 +332,27 @@ mypy ali/                   # Type checking
 
 ## 🔮 Roadmap
 
+### ✅ Completed
 - [x] **Dual Backend Architecture**: Ollama + MLX support
-- [x] **Rate Limit Solution**: Ollama backend implementation
+- [x] **Rate Limit Solution**: Ollama backend implementation  
+- [x] **Clean CLI Experience**: Minimal logging, rich formatting
+- [x] **System Information**: GPU cores, memory allocation detection
+- [x] **Error Handling**: User-friendly messages without debug spam
+- [x] **Project Restructure**: Clean `ali/` package structure
+- [x] **Ollama Parameter Passthrough**: Direct `ali olla -- <params>` functionality
+- [x] **Click Migration**: Migrated from Typer to Click for advanced CLI features
+
+### 🚧 In Progress
 - [ ] **Ollama→MLX Conversion**: Convert Ollama models to MLX format
 - [ ] **Backend Auto-switching**: Intelligent backend selection
+
+### 📋 Planned
 - [ ] **Web Interface**: React-based web UI for remote access
 - [ ] **API Server**: FastAPI backend for programmatic access
 - [ ] **Plugin System**: Extensible architecture for custom tools
 - [ ] **Model Fine-tuning**: Local model training and adaptation
 - [ ] **Multi-modal Support**: Image and document processing
+- [ ] **Performance Optimization**: Enhanced Apple Silicon utilization
 
 ## 🤝 Contributing
 
@@ -300,11 +364,26 @@ mypy ali/                   # Type checking
 6. Submit a pull request
 
 ### Development Guidelines
-- Follow the existing modular architecture
+- Follow the existing modular architecture in `ali/`
 - Keep modules under 200 lines of code
 - Add type hints and docstrings
+- Use `--debug` for development logging
 - Write tests for new functionality
+- Maintain clean user experience (no verbose logs by default)
 - Update configuration as needed
+
+### Development Workflow
+```bash
+# Use editable install for development
+pip install -e .
+
+# Test changes immediately (no reinstall needed)
+ali --debug sys info
+
+# Run quality checks
+ruff check ali/
+mypy ali/
+```
 
 ## 📄 License
 
@@ -316,7 +395,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 - **MLX Team**: For the outstanding Apple Silicon ML framework
 - **Hugging Face**: For the transformers ecosystem and model hub
 - **Rich**: For beautiful terminal output
-- **Typer**: For elegant CLI development
+- **Click**: For powerful CLI framework with advanced argument handling
+- **Typer**: For initial CLI development foundation
 
 ---
 

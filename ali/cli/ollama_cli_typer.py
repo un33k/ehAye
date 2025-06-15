@@ -1,18 +1,25 @@
-"""Ollama CLI interface using Click."""
+"""Ollama CLI interface."""
 
 import sys
 import subprocess
 import time
+from typing import Optional
 
-import click
+import typer
 from rich.console import Console
 from rich.status import Status
 
 from ..core.logging import get_logger
 from .base import handle_keyboard_interrupt, show_error, show_info, show_success
 
+app = typer.Typer(
+    name="ollama", 
+    help="Direct Ollama operations"
+)
 console = Console()
 logger = get_logger("cli.ollama")
+
+
 
 
 def check_ollama() -> bool:
@@ -78,16 +85,7 @@ def start_ollama_service() -> bool:
         return False
 
 
-@click.group(name="olla", help="Direct Ollama operations", invoke_without_command=True)
-@click.pass_context
-def cli(ctx):
-    """Main Ollama CLI group."""
-    # If no subcommand was invoked, show help
-    if ctx.invoked_subcommand is None:
-        click.echo(ctx.get_help())
-
-
-@cli.command()
+@app.command()
 def start():
     """Start Ollama service."""
     try:
@@ -98,7 +96,7 @@ def start():
         show_error(f"Failed to start Ollama: {e}")
 
 
-@cli.command()
+@app.command()
 def stop():
     """Stop Ollama service."""
     try:
@@ -121,7 +119,7 @@ def stop():
         show_error(f"Error stopping Ollama: {e}")
 
 
-@cli.command()
+@app.command()
 def list():
     """List available Ollama models."""
     try:
@@ -148,7 +146,7 @@ def list():
         show_error(f"Error listing models: {e}")
 
 
-@cli.command()
+@app.command()
 def ps():
     """Show running Ollama processes."""
     try:
@@ -175,10 +173,11 @@ def ps():
         show_error(f"Error showing processes: {e}")
 
 
-@cli.command()
-@click.argument('model')
-@click.option('--verbose', '-v', is_flag=True, help='Verbose output')
-def pull(model, verbose):
+@app.command()
+def pull(
+    model: str = typer.Argument(..., help="Model name to download"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output")
+):
     """Download a model via Ollama."""
     try:
         # Ensure service is running
@@ -223,9 +222,10 @@ def pull(model, verbose):
         show_error(f"Error downloading model: {e}")
 
 
-@cli.command()
-@click.argument('model')
-def run(model):
+@app.command()
+def run(
+    model: str = typer.Argument(..., help="Model name to run"),
+):
     """Run a model interactively via Ollama."""
     try:
         # Ensure service is running
@@ -244,10 +244,11 @@ def run(model):
         show_error(f"Error running model: {e}")
 
 
-@cli.command()
-@click.argument('model')
-@click.option('--force', '-f', is_flag=True, help='Skip confirmation')
-def remove(model, force):
+@app.command()
+def remove(
+    model: str = typer.Argument(..., help="Model name to remove"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation")
+):
     """Remove a model from Ollama."""
     try:
         # Ensure service is running
@@ -255,7 +256,7 @@ def remove(model, force):
             return
             
         if not force:
-            if not click.confirm(f"Remove model {model}?"):
+            if not typer.confirm(f"Remove model {model}?"):
                 return
         
         show_info(f"Removing {model}...")
@@ -277,9 +278,10 @@ def remove(model, force):
         show_error(f"Error removing model: {e}")
 
 
-@cli.command()
-@click.argument('model', required=False)
-def info(model):
+@app.command()
+def info(
+    model: Optional[str] = typer.Argument(None, help="Model name to show info for")
+):
     """Show Ollama model information."""
     try:
         # Ensure service is running
@@ -323,8 +325,11 @@ def info(model):
         show_error(f"Error getting info: {e}")
 
 
-@cli.command()
-def help():
+
+
+# Add help command as a shortcut
+@app.command(name="help")
+def ollama_help():
     """Show Ollama help."""
     try:
         subprocess.run(["ollama", "--help"])
@@ -332,7 +337,8 @@ def help():
         show_error(f"Error showing Ollama help: {e}")
 
 
-@cli.command()
+# Add direct shortcuts for common Ollama commands
+@app.command(name="serve")
 def serve():
     """Start Ollama server directly."""
     try:
@@ -343,19 +349,17 @@ def serve():
         show_error(f"Error starting Ollama server: {e}")
 
 
-@cli.command()
-@click.argument('args', nargs=-1, required=True)
-def create(args):
+@app.command(name="create")
+def create(args: str = typer.Argument(..., help="Arguments for ollama create")):
     """Create a model from a Modelfile."""
     try:
-        subprocess.run(["ollama", "create"] + list(args))
+        subprocess.run(["ollama", "create"] + args.split())
     except Exception as e:
         show_error(f"Error creating model: {e}")
 
 
-@cli.command()
-@click.argument('model')
-def show(model):
+@app.command(name="show")
+def show(model: str = typer.Argument(..., help="Model to show")):
     """Show information for a model (same as 'info' but matching Ollama)."""
     try:
         subprocess.run(["ollama", "show", model])
@@ -363,13 +367,18 @@ def show(model):
         show_error(f"Error showing model info: {e}")
 
 
-def main():
-    """Main entry point with -- passthrough handling."""
-    # Handle -- passthrough BEFORE Click processes anything
-    if '--' in sys.argv:
-        try:
-            dash_index = sys.argv.index('--')
-            ollama_args = sys.argv[dash_index + 1:]
+@app.command(name="--")
+def passthrough_dash():
+    """Pass arguments after -- directly to ollama. Usage: ali olla -- <ollama_args>"""
+    import sys
+    
+    try:
+        # Find where -- appears in sys.argv and get everything after it
+        argv = sys.argv
+        if "--" in argv:
+            dash_index = argv.index("--")
+            # Get all arguments after --
+            ollama_args = argv[dash_index + 1:]
             
             if not ollama_args:
                 console.print("Usage: ali olla -- <ollama_args>")
@@ -377,26 +386,31 @@ def main():
                 console.print("  ali olla -- --help")
                 console.print("  ali olla -- --version")
                 console.print("  ali olla -- create mymodel -f Modelfile")
-                sys.exit(0)
+                return
             
-            # Run ollama directly with the provided arguments
+            # Run ollama with the provided arguments
             result = subprocess.run(["ollama"] + ollama_args)
             sys.exit(result.returncode)
+        else:
+            console.print("Usage: ali olla -- <ollama_args>")
             
-        except KeyboardInterrupt:
-            handle_keyboard_interrupt()
-        except Exception as e:
-            show_error(f"Error running ollama command: {e}")
-            sys.exit(1)
-    
-    # If no --, proceed with normal Click processing
+    except KeyboardInterrupt:
+        handle_keyboard_interrupt()
+    except Exception as e:
+        show_error(f"Error running ollama command: {e}")
+        sys.exit(1)
+
+
+def main():
+    """Main entry point for Ollama CLI."""
     try:
-        cli()
+        app()
     except KeyboardInterrupt:
         handle_keyboard_interrupt()
     except Exception as e:
         console.print(f"[red]Fatal error: {e}[/red]")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

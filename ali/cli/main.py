@@ -1,45 +1,22 @@
-"""Main Ali CLI entry point with subcommands."""
+"""Main Ali CLI entry point with subcommands using Click."""
 
 import sys
 import logging
-import typer
+import click
 from rich.console import Console
 
-# Import subcommand apps
-from .model_cli_typer import app as models_app
-from .chat_cli import app as chat_app  
-from .benchmark_cli import app as benchmark_app
-from .system_cli import app as system_app
-from .ollama_cli import app as ollama_app
+# Import subcommand CLIs
+from .ollama_cli import cli as ollama_cli, main as ollama_main
 from .base import handle_keyboard_interrupt
 from ..core.logging import ehaye_logger
 
-app = typer.Typer(
-    name="ali",
-    help="Ali - Artificial Line Interface for ehAye Local",
-    no_args_is_help=False,  # We handle this manually in callback
-    add_completion=True,
-    pretty_exceptions_show_locals=False
-)
 console = Console()
 
-# Global verbose/debug flag
-verbose_option = typer.Option(False, "--verbose", "-v", help="Enable verbose output")
-debug_option = typer.Option(False, "--debug", "-d", help="Enable debug output")
-
-# Add subcommands
-app.add_typer(models_app, name="mod", help="Model management")
-app.add_typer(chat_app, name="chat", help="Chat interface") 
-app.add_typer(benchmark_app, name="perf", help="Performance benchmarking")
-app.add_typer(system_app, name="sys", help="System management")
-app.add_typer(ollama_app, name="olla", help="Direct Ollama operations")
-
-@app.callback(invoke_without_command=True)
-def callback(
-    ctx: typer.Context,
-    verbose: bool = verbose_option,
-    debug: bool = debug_option
-):
+@click.group(name="ali", help="Ali - Artificial Line Interface", invoke_without_command=True)
+@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
+@click.option('--debug', '-d', is_flag=True, help='Enable debug output')
+@click.pass_context
+def cli(ctx, verbose, debug):
     """Configure global options."""
     # Set up logging based on flags
     if debug:
@@ -61,12 +38,22 @@ def callback(
     # If no command was given, just show help without error
     if ctx.invoked_subcommand is None:
         console.print(ctx.get_help())
-        raise typer.Exit(0)
+
+# Add subcommands by importing and adding them
+cli.add_command(ollama_cli, name="olla")
 
 def main():
     """Main entry point for Ali CLI."""
+    # Special handling for ollama -- passthrough
+    if len(sys.argv) >= 3 and sys.argv[1] == "olla" and "--" in sys.argv:
+        # Extract just the olla part and delegate to ollama_main
+        olla_index = sys.argv.index("olla")
+        sys.argv = sys.argv[olla_index:]  # Remove 'ali' from argv
+        ollama_main()
+        return
+    
     try:
-        app()
+        cli()
     except KeyboardInterrupt:
         handle_keyboard_interrupt()
     except SystemExit:
