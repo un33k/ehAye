@@ -14,7 +14,22 @@ from ..llm.streaming import stream_to_console
 from ..models.registry import get_installed_models, search_models
 from .base import BaseCLI, common_setup, handle_keyboard_interrupt, show_error, show_info
 
-app = typer.Typer(name="chat", help="Interactive chat with LLM models")
+def get_chat_command_prefix():
+    """Get the chat command prefix from config."""
+    try:
+        from ..core.config import get_config
+        config = get_config()
+        main_cmd = config.cli.main_command
+        chat_cmd = config.cli.chat_command
+        return f"{main_cmd} {chat_cmd}"
+    except Exception:
+        return "ali chat"
+
+app = typer.Typer(
+    name="chat", 
+    help="Interactive chat with LLM models",
+    context_settings={"help_option_names": ["-h", "--help"]}
+)
 console = Console()
 logger = get_logger("cli.chat")
 

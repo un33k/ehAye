@@ -87,7 +87,28 @@ def mod_delegate(ctx):
 @click.pass_context  
 def chat_delegate(ctx):
     """Chat interface"""
-    args = ["python", "-m", "ali.cli.chat_cli"] + ctx.args
+    args = ["python", "-m", "ali.cli.chat_cli"]
+    
+    # If no args provided, default to interactive
+    if not ctx.args:
+        args.append("interactive")
+    else:
+        # Check for common mistakes and show helpful error
+        if ctx.args and ctx.args[0] in ['-l', '--list']:
+            console.print("[red]Error: -l/--list is not a valid option for chat.[/red]")
+            console.print("[yellow]Did you mean: ali mod list[/yellow]")
+            ctx.exit(1)
+        
+        # If first arg is a flag, assume interactive mode
+        if ctx.args and ctx.args[0].startswith('-'):
+            args.extend(['interactive'] + list(ctx.args))
+        # If first arg is a known subcommand, pass through
+        elif ctx.args and ctx.args[0] in ['interactive', 'single', 'models']:
+            args.extend(ctx.args)
+        # Otherwise assume it's a prompt for single mode
+        else:
+            args.extend(['single'] + list(ctx.args))
+    
     result = subprocess.run(args)
     ctx.exit(result.returncode)
 

@@ -56,6 +56,15 @@ class ModelConfig(BaseModel):
     backends: List[str] = ["ollama", "mlx"]
 
 
+class CLIConfig(BaseModel):
+    """CLI configuration."""
+    main_command: str = "ali"
+    model_command: str = "mod"
+    chat_command: str = "chat"
+    performance_command: str = "perf"
+    system_command: str = "sys"
+    ollama_command: str = "olla"
+
 class ChatConfig(BaseModel):
     """Chat configuration."""
     default_temperature: float = 0.7
@@ -78,6 +87,7 @@ class EhAyeConfig(BaseModel):
     paths: PathConfig = Field(default_factory=PathConfig)
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
     models: ModelConfig = Field(default_factory=ModelConfig)
+    cli: CLIConfig = Field(default_factory=CLIConfig)
     chat: ChatConfig = Field(default_factory=ChatConfig)
     benchmark: BenchmarkConfig = Field(default_factory=BenchmarkConfig)
     

@@ -6,7 +6,8 @@ from typing import Dict, List, Optional
 
 from ..core.config import get_config
 from ..core.logging import get_logger
-from .generation import GenerationConfig, generate_text, generate_text_stream
+from ..backends.manager import get_backend_manager
+from .generation import GenerationConfig
 from .prompts import format_conversation, format_prompt
 
 logger = get_logger("llm.chat")
@@ -119,20 +120,37 @@ class ChatSession:
                 self.conversation.system_prompt
             )
         
-        # Generate response
+        # Generate response using backend manager
+        backend_manager = get_backend_manager()
+        
+        # Determine which backend to use for this model
+        backend = self._get_backend_for_model(self.model_id, backend_manager)
+        
+        # Convert prompt to messages format for backend
+        from ..backends.base import ChatMessage
+        messages = [ChatMessage(role="user", content=prompt)]
+        
+        # Create generation config
+        from ..backends.base import GenerationConfig as BackendGenerationConfig
+        backend_config = BackendGenerationConfig(
+            max_tokens=self.generation_config.max_tokens,
+            temperature=self.generation_config.temperature
+        )
+        
+        # Generate response (Ollama backend always streams)
+        response_stream = backend.generate(self.model_id, messages, backend_config)
+        
         if streaming:
-            response_stream = generate_text_stream(
-                prompt, 
-                self.model_id, 
-                self.generation_config
-            )
-            # For streaming, we need to collect the response
+            # For streaming, yield chunks as they come
             response = ""
             for chunk in response_stream:
                 response += chunk
                 yield chunk
         else:
-            response = generate_text(prompt, self.model_id, self.generation_config)
+            # For non-streaming, collect all chunks
+            response = ""
+            for chunk in response_stream:
+                response += chunk
         
         # Add assistant response
         self.conversation.add_assistant_message(response)
@@ -189,6 +207,31 @@ class ChatSession:
         except Exception as e:
             logger.error(f"Failed to load conversation: {e}")
             return False
+    
+    def _get_backend_for_model(self, model_id: str, backend_manager):
+        """Determine which backend to use for a given model."""
+        # Check if model exists in Ollama first (since it's the default)
+        try:
+            ollama_backend = backend_manager.get_backend("ollama")
+            ollama_models = ollama_backend.list_models()
+            if any(m.id == model_id for m in ollama_models):
+                return ollama_backend
+        except Exception:
+            pass
+        
+        # Try MLX backend
+        try:
+            mlx_backend = backend_manager.get_backend("mlx")
+            mlx_models = mlx_backend.list_models()
+            if any(m.id == model_id for m in mlx_models):
+                return mlx_backend
+        except Exception:
+            pass
+        
+        # Default to the configured default backend
+        config = get_config()
+        default_backend = config.models.default_backend
+        return backend_manager.get_backend(default_backend)
 
 
 class ChatManager:

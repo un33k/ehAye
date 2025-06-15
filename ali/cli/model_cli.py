@@ -32,8 +32,8 @@ def get_command_prefix():
     try:
         from ..core.config import get_config
         config = get_config()
-        main_cmd = config.get('cli', {}).get('main_command', 'ali')
-        model_cmd = config.get('cli', {}).get('model_command', 'mod')
+        main_cmd = config.cli.main_command
+        model_cmd = config.cli.model_command
         return f"{main_cmd} {model_cmd}"
     except Exception:
         # Fallback if config loading fails

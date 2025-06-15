@@ -248,7 +248,7 @@ class OllamaBackend(BaseBackend):
             prompt = self._format_messages(messages)
             
             # Build the command
-            cmd = ["ollama", "generate", model_id, prompt]
+            cmd = ["ollama", "run", model_id, prompt]
             
             # Add temperature if specified
             if config.temperature != 0.7:
