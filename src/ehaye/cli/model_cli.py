@@ -374,16 +374,33 @@ def handle_download(backend_obj, params):
                 console.print(f"  {clean_line}")
         
         # Download model with progress callback
-        model_info = backend_obj.download_model(model_id, progress_callback)
-        
-        show_success(f"Successfully downloaded {model_info.name}")
-        console.print(f"  Model ID: {model_info.id}")
-        if model_info.size:
-            console.print(f"  Size: {model_info.size}")
+        try:
+            model_info = backend_obj.download_model(model_id, progress_callback)
             
+            # Stop progress status if it's running
+            if progress_status:
+                progress_status.stop()
+            
+            show_success(f"Successfully downloaded {model_info.name}")
+            console.print(f"  Model ID: {model_info.id}")
+            if model_info.size:
+                console.print(f"  Size: {model_info.size}")
+                
+        except KeyboardInterrupt:
+            # Clean up progress status on interruption
+            if progress_status:
+                progress_status.stop()
+            raise  # Re-raise to be handled by main()
+        
     except Exception as e:
+        # Clean up progress status on error
+        if 'progress_status' in locals() and progress_status:
+            progress_status.stop()
         logger.error(f"Failed to download model: {e}")
-        show_error(f"Failed to download model: {e}")
+        if "cancelled by user" in str(e).lower():
+            show_info("Download cancelled by user")
+        else:
+            show_error(f"Failed to download model: {e}")
 
 
 def handle_remove(backend_obj, params):

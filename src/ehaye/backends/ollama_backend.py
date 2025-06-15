@@ -115,6 +115,7 @@ class OllamaBackend(BaseBackend):
     def download_model(self, model_id: str, progress_callback: Optional[callable] = None) -> ModelInfo:
         """Download and install a model."""
         logger.info(f"Downloading model: {model_id}")
+        process = None
         
         try:
             # Use subprocess.Popen for real-time output
@@ -154,7 +155,48 @@ class OllamaBackend(BaseBackend):
                 logger.error(f"Failed to download model {model_id}")
                 raise RuntimeError(f"Download failed with exit code {return_code}")
                 
+        except KeyboardInterrupt:
+            # Handle Ctrl+C gracefully - terminate the download process
+            logger.info(f"Download interrupted by user for model: {model_id}")
+            if process:
+                logger.info("Terminating download process...")
+                process.terminate()
+                try:
+                    # Give process 5 seconds to terminate gracefully
+                    return_code = process.wait(timeout=5)
+                    logger.info(f"Download process terminated gracefully (exit code: {return_code})")
+                except subprocess.TimeoutExpired:
+                    # Force kill if it doesn't terminate gracefully
+                    logger.warning("Download process didn't terminate gracefully, force killing...")
+                    process.kill()
+                    process.wait()  # Wait for the kill to complete
+                    logger.info("Download process force killed")
+                
+                # Verify no ollama pull processes are still running
+                import psutil
+                try:
+                    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                        if 'ollama' in proc.info['name'] and proc.info['cmdline']:
+                            cmdline = ' '.join(proc.info['cmdline'])
+                            if 'pull' in cmdline and model_id in cmdline:
+                                logger.warning(f"Found lingering ollama process: {proc.info['pid']} - {cmdline}")
+                                proc.terminate()
+                except Exception as e:
+                    logger.debug(f"Process check failed: {e}")
+            
+            raise RuntimeError("Download cancelled by user")
+            
         except Exception as e:
+            # Clean up process on any other error
+            if process and process.poll() is None:
+                logger.warning("Cleaning up download process due to error...")
+                process.terminate()
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+            
             logger.error(f"Error downloading model {model_id}: {e}")
             raise
     
