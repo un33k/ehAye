@@ -39,7 +39,7 @@ class OllamaBackend(BaseBackend):
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
             
             if result.returncode != 0:
-                logger.error(f"Ollama command failed: {result.stderr}")
+                logger.debug(f"Ollama command failed: {result.stderr}")
                 
             return result
         except subprocess.TimeoutExpired:

@@ -43,12 +43,12 @@ class EnvironmentValidator:
             expected_python = str(self.project_root / ".venv" / "bin" / "python")
             
             if current_python != expected_python:
-                logger.warning(
+                logger.debug(
                     f"Python path mismatch: {current_python} != {expected_python}"
                 )
                 
         except subprocess.CalledProcessError:
-            logger.warning("Cannot determine Python path")
+            logger.debug("Cannot determine Python path")
         
         return True
     

@@ -88,6 +88,65 @@ coverage.xml
 *.safetensors
 *.gguf
 *.ggml
+*.pt
+*.pth
+*.pkl
+*.pickle
+
+# Cloud provider specific
+.aws/
+.gcp/
+.azure/
+.terraform/
+terraform.tfstate*
+.terraform.lock.hcl
+
+# Docker
+Dockerfile.local
+docker-compose.override.yml
+.dockerignore.local
+
+# AI/ML specific
+models/
+checkpoints/
+experiments/
+wandb/
+mlruns/
+.mlflow/
+tensorboard_logs/
+*.npy
+*.npz
+
+# Chat/conversation data
+conversations/
+chat_history/
+user_data/
+
+# API keys and secrets
+.env.secret
+.secrets/
+api_keys.txt
+*.key
+*.pem
+*.p12
+*.pfx
+
+# User-specific files
+.ignore-me.txt
+.local/
+local_config/
+personal/
+
+# Benchmark and performance data
+benchmark_results/
+performance_logs/
+*.prof
+*.profile
+
+# Development databases
+*.db
+*.sqlite
+*.sqlite3
 
 # Temporary files
 *.tmp
