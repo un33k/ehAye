@@ -59,16 +59,20 @@ class OllamaBackend(BaseBackend):
             models = []
             lines = result.stdout.strip().split('\n')
             
-            # Skip header line
-            for line in lines[1:]:
+            # Skip header line if present
+            for i, line in enumerate(lines):
+                if i == 0 and ('NAME' in line.upper() or 'MODEL' in line.upper()):
+                    continue  # Skip header
+                    
                 if not line.strip():
                     continue
                     
-                parts = line.split('\t')
-                if len(parts) >= 3:
+                # Split by whitespace (spaces/tabs)
+                parts = line.split()
+                
+                if len(parts) >= 4:
                     model_name = parts[0].strip()
-                    model_id = parts[1].strip()
-                    size = parts[2].strip()
+                    size = f"{parts[2]} {parts[3]}"  # Combine number and unit
                     
                     models.append(ModelInfo(
                         id=model_name,
@@ -76,7 +80,6 @@ class OllamaBackend(BaseBackend):
                         size=size,
                         installed=True
                     ))
-            
             return models
             
         except Exception as e:
@@ -115,12 +118,13 @@ class OllamaBackend(BaseBackend):
         
         try:
             # Use subprocess.Popen for real-time output
+            # Combine stdout and stderr since Ollama outputs progress to stderr
             process = subprocess.Popen(
                 ["ollama", "pull", model_id],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Redirect stderr to stdout
                 text=True,
-                bufsize=1,
+                bufsize=0,  # Unbuffered for real-time output
                 universal_newlines=True
             )
             
@@ -146,9 +150,9 @@ class OllamaBackend(BaseBackend):
                     installed=True
                 )
             else:
-                stderr = process.stderr.read()
-                logger.error(f"Failed to download model {model_id}: {stderr}")
-                raise RuntimeError(f"Download failed: {stderr}")
+                # Error details were already captured in progress output
+                logger.error(f"Failed to download model {model_id}")
+                raise RuntimeError(f"Download failed with exit code {return_code}")
                 
         except Exception as e:
             logger.error(f"Error downloading model {model_id}: {e}")

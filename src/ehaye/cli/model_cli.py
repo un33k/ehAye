@@ -320,13 +320,52 @@ def handle_download(backend_obj, params):
         
         show_info(f"Downloading {model_id}...")
         
-        # Progress callback
-        def progress_callback(message: str):
-            if verbose:
-                console.print(f"  {message}")
+        # Progress callback with smart parsing using Rich Status
+        from rich.status import Status
         
-        # Download model
-        model_info = backend_obj.download_model(model_id, progress_callback if verbose else None)
+        manifest_shown = False
+        last_percent = -1
+        progress_status = None
+        
+        def progress_callback(message: str):
+            nonlocal manifest_shown, last_percent, progress_status
+            import re
+            
+            # Strip terminal control sequences
+            clean_line = re.sub(r'\x1b\[[^a-zA-Z]*[a-zA-Z]|\x1b\[\?\d+[hl]|\[K|\r', '', message).strip()
+            
+            if not clean_line:
+                return
+                
+            # Extract progress info from lines like: "pulling ff82381e2bea: 24% ▕████ ▏ 997 MB/4.1 GB 102 MB/s 30s"
+            progress_match = re.search(r'pulling [a-f0-9]+:\s*(\d+)%.*?(\d+(?:\.\d+)?)\s*([KMGT]?B)/(\d+(?:\.\d+)?)\s*([KMGT]?B)', clean_line)
+            if progress_match:
+                percent, current, current_unit, total, total_unit = progress_match.groups()
+                current_percent = int(percent)
+                
+                # Start status on first progress update
+                if progress_status is None:
+                    progress_status = Status("", console=console)
+                    progress_status.start()
+                
+                # Update progress - show every 5% or significant changes
+                if current_percent != last_percent and (current_percent % 5 == 0 or current_percent > last_percent + 2):
+                    progress_status.update(f"📥 {percent}% ({current} {current_unit}/{total} {total_unit})")
+                    last_percent = current_percent
+                    
+                    # Stop status when complete
+                    if current_percent == 100:
+                        progress_status.stop()
+                        console.print(f"  📥 {percent}% ({current} {current_unit}/{total} {total_unit})")
+                        
+            elif 'pulling manifest' in clean_line and not manifest_shown and not verbose:
+                console.print("  📦 Fetching model information...")
+                manifest_shown = True
+            elif verbose and clean_line and 'pulling manifest' not in clean_line:
+                console.print(f"  {clean_line}")
+        
+        # Download model with progress callback
+        model_info = backend_obj.download_model(model_id, progress_callback)
         
         show_success(f"Successfully downloaded {model_info.name}")
         console.print(f"  Model ID: {model_info.id}")
