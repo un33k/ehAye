@@ -2,9 +2,6 @@
 
 This document provides guidance to Claude Code (claude.ai/code) for working with the ehAye-Local repository.
 
-## Claude Code Configuration
-/model opus  # Uses Claude Opus 4 (claude-opus-4-20250514)
-
 ## Project Overview
 
 **ehAye-Local** is a professional-grade local LLM interface optimized for Apple Silicon Macs.
