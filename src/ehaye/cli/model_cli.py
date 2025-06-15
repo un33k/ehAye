@@ -5,20 +5,71 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from ..core.logging import get_logger
-from ..backends.manager import get_backend_manager
-from .base import common_setup, confirm_action, handle_keyboard_interrupt, show_error, show_info, show_success
-
 console = Console()
-logger = get_logger("cli.models")
+
+
+def setup_logging(verbose: bool, debug: bool):
+    """Configure logging based on verbosity flags."""
+    import logging
+    from ..core.logging import ehaye_logger
+    
+    if debug:
+        # Show all logs including DEBUG level
+        level = "DEBUG"
+    elif verbose:
+        # Show INFO level and above
+        level = "INFO"
+    else:
+        # No logs by default (only CRITICAL)
+        level = "CRITICAL"
+    
+    # Configure the global logger
+    ehaye_logger.setup(level=level, enable_rich=True)
+
+
+def show_help():
+    """Show help message."""
+    console.print("ehAye Models CLI - manage your local LLM models")
+    console.print("\nUsage:")
+    console.print("  ehaye-models [ACTION] [OPTIONS]")
+    console.print("\nAction Flags (choose one):")
+    console.print("  -l, --list       List installed models")
+    console.print("  -s, --search     Search available models")
+    console.print("  -d, --download   Download a model")
+    console.print("  -r, --remove     Remove a model")
+    console.print("  -i, --info       Show model information")
+    console.print("\nParameters:")
+    console.print("  -q, --query      Search query")
+    console.print("  -f, --flavor     Model flavor/size (e.g., 7B, mini)")
+    console.print("  -m, --model      Model ID to operate on")
+    console.print("  -p, --provider   Provider to use (ollama/mlx) [default: ollama]")
+    console.print("  -c, --category   Filter by category")
+    console.print("\nOptions:")
+    console.print("  -v, --verbose    Verbose output (INFO level logs)")
+    console.print("  --debug          Debug output (all logs)")
+    console.print("  --interactive    Interactive selection")
+    console.print("  --force          Force operation")
+    console.print("\nExamples:")
+    console.print("  ehaye-models -s -q deepseek -f 7B -p ollama")
+    console.print("  ehaye-models -s -f 1B")
+    console.print("  ehaye-models -l")
+    console.print("  ehaye-models -d -m phi3")
+    console.print("  ehaye-models -s -p mlx")
+    console.print("  ehaye-models -l -p mlx")
 
 
 def main():
     """Main entry point for model CLI."""
     try:
-        # Create a simple argument parser using typer.run with context_settings
         import sys
         args = sys.argv[1:]  # Get command line arguments
+        
+        # Quick scan for verbosity flags to set up logging early
+        verbose = any(arg in ['-v', '--verbose'] for arg in args)
+        debug = any(arg == '--debug' for arg in args)
+        
+        # Setup logging immediately before any other operations
+        setup_logging(verbose, debug)
         
         # Parse arguments manually for better control
         actions = []
@@ -50,9 +101,9 @@ def main():
                 if i + 1 < len(args):
                     params['model'] = args[i + 1]
                     i += 1
-            elif arg in ['-b', '--backend']:
+            elif arg in ['-p', '--provider']:
                 if i + 1 < len(args):
-                    params['backend'] = args[i + 1]
+                    params['provider'] = args[i + 1]
                     i += 1
             elif arg in ['-c', '--category']:
                 if i + 1 < len(args):
@@ -60,6 +111,8 @@ def main():
                     i += 1
             elif arg in ['-v', '--verbose']:
                 params['verbose'] = True
+            elif arg == '--debug':
+                params['debug'] = True
             elif arg == '--interactive':
                 params['interactive'] = True
             elif arg == '--force':
@@ -71,9 +124,15 @@ def main():
             i += 1
         
         # Set defaults
-        params.setdefault('verbose', False)
+        params.setdefault('verbose', verbose)
+        params.setdefault('debug', debug)
         params.setdefault('interactive', False)
         params.setdefault('force', False)
+        
+        # Import after logging setup to avoid early log messages
+        from ..core.logging import get_logger
+        from ..backends.manager import get_backend_manager
+        from .base import common_setup, confirm_action, handle_keyboard_interrupt, show_error, show_info, show_success
         
         # Check action count
         if len(actions) == 0:
@@ -83,6 +142,8 @@ def main():
             show_error("Please specify only one action flag")
             return
         
+        logger = get_logger("cli.models")
+        
         # Setup context
         try:
             common_setup(None, params.get('verbose', False), False, None, skip_venv=True)
@@ -91,7 +152,8 @@ def main():
         
         # Get backend manager
         manager = get_backend_manager()
-        backend_obj = manager.get_backend(params.get('backend'))
+        provider = params.get('provider', 'ollama')  # Default to ollama
+        backend_obj = manager.get_backend(provider)
         
         # Execute action
         action = actions[0]
@@ -113,54 +175,29 @@ def main():
         show_error(f"Command failed: {e}")
 
 
-def show_help():
-    """Show help message."""
-    console.print("ehAye Models CLI - manage your local LLM models")
-    console.print("\nUsage:")
-    console.print("  ehaye-models [ACTION] [OPTIONS]")
-    console.print("\nAction Flags (choose one):")
-    console.print("  -l, --list       List installed models")
-    console.print("  -s, --search     Search available models")
-    console.print("  -d, --download   Download a model")
-    console.print("  -r, --remove     Remove a model")
-    console.print("  -i, --info       Show model information")
-    console.print("\nParameters:")
-    console.print("  -q, --query      Search query")
-    console.print("  -f, --flavor     Model flavor/size (e.g., 7B, mini)")
-    console.print("  -m, --model      Model ID to operate on")
-    console.print("  -b, --backend    Backend to use (ollama/mlx)")
-    console.print("  -c, --category   Filter by category")
-    console.print("\nOptions:")
-    console.print("  -v, --verbose    Verbose output")
-    console.print("  --interactive    Interactive selection")
-    console.print("  --force          Force operation")
-    console.print("\nExamples:")
-    console.print("  ehaye-models -s -q deepseek -f 7B -b ollama")
-    console.print("  ehaye-models -s -f 1B -b ollama")
-    console.print("  ehaye-models -l -b ollama")
-    console.print("  ehaye-models -d -m phi3 -b ollama")
-
-
 def handle_list(backend_obj, manager, params):
     """Handle list operation."""
     try:
-        backend = params.get('backend')
+        from ..core.logging import get_logger
+        from .base import show_error, show_info, show_success, confirm_action
+        logger = get_logger("cli.models")
+        provider = params.get('provider', 'ollama')
         query = params.get('query')
         category = params.get('category')
         flavor = params.get('flavor')
         verbose = params.get('verbose', False)
         
-        if backend:
+        if provider != 'all':
             models = backend_obj.list_models()
-            console.print(f"📦 Installed Models ({backend}):")
+            console.print(f"📦 Installed Models ({provider}):")
         else:
             all_models = manager.list_all_models()
             models = []
-            for backend_name, backend_models in all_models.items():
-                for model in backend_models:
-                    model.description = f"[{backend_name}] " + (model.description or "")
+            for provider_name, provider_models in all_models.items():
+                for model in provider_models:
+                    model.description = f"[{provider_name}] " + (model.description or "")
                     models.append(model)
-            console.print("📦 Installed Models (All Backends):")
+            console.print("📦 Installed Models (All Providers):")
         
         # Apply filters
         if query:
@@ -187,8 +224,8 @@ def handle_list(backend_obj, manager, params):
             if verbose:
                 console.print(f"      ID: {model.id}")
                 if '[' in (model.description or ''):
-                    backend_name = model.description.split(']')[0][1:]
-                    console.print(f"      Backend: {backend_name}")
+                    provider_name = model.description.split(']')[0][1:]
+                    console.print(f"      Provider: {provider_name}")
                 if model.family:
                     console.print(f"      Family: {model.family}")
         
@@ -202,22 +239,25 @@ def handle_list(backend_obj, manager, params):
 def handle_search(backend_obj, manager, params):
     """Handle search operation."""
     try:
-        backend = params.get('backend')
+        from ..core.logging import get_logger
+        from .base import show_error, show_info, show_success, confirm_action
+        logger = get_logger("cli.models")
+        provider = params.get('provider', 'ollama')
         query = params.get('query')
         flavor = params.get('flavor')
         verbose = params.get('verbose', False)
         
-        if backend:
+        if provider != 'all':
             models = backend_obj.search_models(query)
-            console.print(f"🔍 Available Models for Download ({backend}):")
+            console.print(f"🔍 Available Models for Download ({provider}):")
         else:
             all_models = manager.search_all_models(query)
             models = []
-            for backend_name, backend_models in all_models.items():
-                for model in backend_models:
-                    model.description = f"[{backend_name}] " + (model.description or "")
+            for provider_name, provider_models in all_models.items():
+                for model in provider_models:
+                    model.description = f"[{provider_name}] " + (model.description or "")
                     models.append(model)
-            console.print("🔍 Available Models for Download (All Backends):")
+            console.print("🔍 Available Models for Download (All Providers):")
         
         # Apply flavor filter
         if flavor:
@@ -238,12 +278,12 @@ def handle_search(backend_obj, manager, params):
             if verbose:
                 console.print(f"      ID: {model.id}")
                 if '[' in (model.description or ''):
-                    backend_name = model.description.split(']')[0][1:]
-                    console.print(f"      Backend: {backend_name}")
+                    provider_name = model.description.split(']')[0][1:]
+                    console.print(f"      Provider: {provider_name}")
                 if model.family:
                     console.print(f"      Family: {model.family}")
         
-        console.print(f"\n💡 Use: ehaye-models -d -m <model_id> -b <backend>")
+        console.print(f"\n💡 Use: ehaye-models -d -m <model_id> -p <provider>")
         console.print(f"💡 Use: ehaye-models -d --interactive")
         
     except Exception as e:
@@ -254,6 +294,9 @@ def handle_search(backend_obj, manager, params):
 def handle_download(backend_obj, params):
     """Handle download operation."""
     try:
+        from ..core.logging import get_logger
+        from .base import show_error, show_info, show_success, confirm_action
+        logger = get_logger("cli.models")
         model_id = params.get('model')
         interactive = params.get('interactive', False)
         force = params.get('force', False)
@@ -299,6 +342,9 @@ def handle_download(backend_obj, params):
 def handle_remove(backend_obj, params):
     """Handle remove operation."""
     try:
+        from ..core.logging import get_logger
+        from .base import show_error, show_info, show_success, confirm_action
+        logger = get_logger("cli.models")
         model_id = params.get('model')
         interactive = params.get('interactive', False)
         force = params.get('force', False)
@@ -333,6 +379,9 @@ def handle_remove(backend_obj, params):
 def handle_info(backend_obj, params):
     """Handle info operation."""
     try:
+        from ..core.logging import get_logger
+        from .base import show_error, show_info, show_success, confirm_action
+        logger = get_logger("cli.models")
         model_id = params.get('model')
         interactive = params.get('interactive', False)
         
