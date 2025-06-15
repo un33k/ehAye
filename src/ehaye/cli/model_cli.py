@@ -29,9 +29,15 @@ def setup_logging(verbose: bool, debug: bool):
 
 def show_help():
     """Show help message."""
+    import sys
+    import os
+    
+    # Get the command name (ali or ehaye-models)
+    cmd_name = os.path.basename(sys.argv[0])
+    
     console.print("ehAye Models CLI - manage your local LLM models")
-    console.print("\nUsage:")
-    console.print("  ehaye-models [ACTION] [OPTIONS]")
+    console.print(f"\nUsage:")
+    console.print(f"  {cmd_name} [ACTION] [OPTIONS]")
     console.print("\nAction Flags (choose one):")
     console.print("  -l, --list       List installed models")
     console.print("  -s, --search     Search available models")
@@ -50,12 +56,12 @@ def show_help():
     console.print("  --interactive    Interactive selection")
     console.print("  --force          Force operation")
     console.print("\nExamples:")
-    console.print("  ehaye-models -s -q deepseek -f 7B -p ollama")
-    console.print("  ehaye-models -s -f 1B")
-    console.print("  ehaye-models -l")
-    console.print("  ehaye-models -d -m phi3")
-    console.print("  ehaye-models -s -p mlx")
-    console.print("  ehaye-models -l -p mlx")
+    console.print(f"  {cmd_name} -s -q deepseek -f 7B -p ollama")
+    console.print(f"  {cmd_name} -s -f 1B")
+    console.print(f"  {cmd_name} -l")
+    console.print(f"  {cmd_name} -d -m phi3")
+    console.print(f"  {cmd_name} -s -p mlx")
+    console.print(f"  {cmd_name} -l -p mlx")
 
 
 def main():
@@ -282,8 +288,11 @@ def handle_search(backend_obj, manager, params):
                 if model.family:
                     console.print(f"      Family: {model.family}")
         
-        console.print(f"\n💡 Use: ehaye-models -d -m <model_id> -p <provider>")
-        console.print(f"💡 Use: ehaye-models -d --interactive")
+        import sys
+        import os
+        cmd_name = os.path.basename(sys.argv[0])
+        console.print(f"\n💡 Use: {cmd_name} -d -m <model_id> -p <provider>")
+        console.print(f"💡 Use: {cmd_name} -d --interactive")
         
     except Exception as e:
         logger.error(f"Failed to search models: {e}")

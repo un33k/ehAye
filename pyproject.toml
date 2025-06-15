@@ -62,6 +62,7 @@ ehaye-chat = "ehaye.cli.chat_cli:main"
 ehaye-benchmark = "ehaye.cli.benchmark_cli:main"
 ehaye-models = "ehaye.cli.model_cli:main"
 ehaye-system = "ehaye.cli.system_cli:main"
+ali = "ehaye.cli.model_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/ehaye/ehaye-local"
