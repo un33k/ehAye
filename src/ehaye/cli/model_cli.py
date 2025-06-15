@@ -9,9 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from ..core.logging import get_logger
-from ..models.categories import group_models
-from ..models.manager import download_model, list_available_models, remove_model, search_available_models
-from ..models.registry import get_installed_models, search_models
+from ..backends.manager import get_backend_manager, get_backend
 from .base import BaseCLI, common_setup, confirm_action, handle_keyboard_interrupt, show_error, show_info, show_success
 
 app = typer.Typer(name="models", help="Model management and installation")
@@ -24,6 +22,7 @@ def list(
     ctx: typer.Context,
     category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category"),
     search: Optional[str] = typer.Option(None, "--search", "-s", help="Search models"),
+    backend: Optional[str] = typer.Option(None, "--backend", "-b", help="Backend to use (ollama/mlx)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
     config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
@@ -32,45 +31,61 @@ def list(
     try:
         base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
         
-        # Get models
-        if search:
-            models = search_models(query=search, category=category)
-        else:
-            models = get_installed_models()
+        # Get backend manager
+        manager = get_backend_manager()
+        
+        if backend:
+            # List models from specific backend
+            if not manager.is_backend_available(backend):
+                show_error(f"Backend '{backend}' not available")
+                available = manager.list_backends()
+                if available:
+                    show_info(f"Available backends: {', '.join(available)}")
+                return
+            
+            backend_obj = manager.get_backend(backend)
+            models = backend_obj.list_models()
+            
+            if search:
+                query_lower = search.lower()
+                models = [m for m in models if query_lower in m.name.lower() or query_lower in m.id.lower()]
+            
             if category:
-                models = [m for m in models if m.category == category]
+                models = [m for m in models if m.family and category.lower() in m.family.lower()]
+        else:
+            # List models from all backends
+            all_models = manager.list_all_models()
+            models = []
+            for backend_name, backend_models in all_models.items():
+                for model in backend_models:
+                    model.description = f"[{backend_name}] " + (model.description or "")
+                    models.append(model)
+            
+            if search:
+                query_lower = search.lower()
+                models = [m for m in models if query_lower in m.name.lower() or query_lower in m.id.lower()]
+            
+            if category:
+                models = [m for m in models if m.family and category.lower() in m.family.lower()]
         
         if not models:
             show_error("No models found")
             return
         
-        # Group by category
-        grouped = group_models([m.id for m in models])
-        
         console.print("📦 Installed Models:")
         console.print("=" * 60)
         
-        total_models = 0
-        for category_name, category_models in grouped.items():
-            if not category_models:
-                continue
+        for i, model in enumerate(models, 1):
+            size_info = f" ({model.size})" if model.size else ""
+            console.print(f"  {i:2d}. {model.name}{size_info}")
             
-            # Category header
-            emoji = category_models[0].emoji
-            console.print(f"\n{emoji} {category_name.title()} Models:")
-            
-            for model in category_models:
-                size_info = f" ({model.size_params})" if model.size_params else ""
-                console.print(f"  • {model.name}{size_info}")
-                
-                if verbose:
-                    console.print(f"    ID: {model.id}")
-                    if model.size_gb:
-                        console.print(f"    Size: ~{model.size_gb:.1f}GB")
-            
-            total_models += len(category_models)
+            if verbose:
+                console.print(f"      ID: {model.id}")
+                console.print(f"      Backend: {model.description.split(']')[0][1:] if '[' in model.description else 'unknown'}")
+                if model.family:
+                    console.print(f"      Family: {model.family}")
         
-        console.print(f"\n💡 Total: {total_models} model(s) installed")
+        console.print(f"\n💡 Total: {len(models)} model(s) installed")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt()
@@ -82,6 +97,7 @@ def list(
 def search(
     ctx: typer.Context,
     query: Optional[str] = typer.Argument(None, help="Search query"),
+    backend: Optional[str] = typer.Option(None, "--backend", "-b", help="Backend to use (ollama/mlx)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
     config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
@@ -90,33 +106,51 @@ def search(
     try:
         base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
         
-        # Get available models
-        if query:
-            models = search_available_models(query)
+        # Get backend manager
+        manager = get_backend_manager()
+        
+        if backend:
+            # Search models from specific backend
+            if not manager.is_backend_available(backend):
+                show_error(f"Backend '{backend}' not available")
+                available = manager.list_backends()
+                if available:
+                    show_info(f"Available backends: {', '.join(available)}")
+                return
+            
+            backend_obj = manager.get_backend(backend)
+            models = backend_obj.search_models(query)
+            
+            console.print(f"🔍 Available Models for Download ({backend}):")
         else:
-            models = list_available_models()
+            # Search models from all backends
+            all_models = manager.search_all_models(query)
+            models = []
+            for backend_name, backend_models in all_models.items():
+                for model in backend_models:
+                    model.description = f"[{backend_name}] " + (model.description or "")
+                    models.append(model)
+            
+            console.print("🔍 Available Models for Download (All Backends):")
         
         if not models:
             show_error("No models found")
             return
         
-        console.print("🔍 Available Models for Download:")
         console.print("=" * 60)
         
-        for i, model_id in enumerate(models, 1):
-            # Categorize model for display
-            from ..models.categories import categorize_model
-            model_info = categorize_model(model_id)
-            
-            console.print(f"  {i:2d}. {model_info.display_name}")
+        for i, model in enumerate(models, 1):
+            size_info = f" ({model.size})" if model.size else ""
+            console.print(f"  {i:2d}. {model.name}{size_info}")
             
             if verbose:
-                console.print(f"      ID: {model_id}")
-                console.print(f"      Category: {model_info.category}")
-                if model_info.size_gb:
-                    console.print(f"      Est. Size: {model_info.size_gb:.1f}GB")
+                console.print(f"      ID: {model.id}")
+                backend_name = model.description.split(']')[0][1:] if '[' in model.description else 'unknown'
+                console.print(f"      Backend: {backend_name}")
+                if model.family:
+                    console.print(f"      Family: {model.family}")
         
-        console.print(f"\n💡 Use: ehaye-models download <model_id>")
+        console.print(f"\n💡 Use: ehaye-models download <model_id> --backend <backend>")
         console.print(f"💡 Use: ehaye-models download --interactive")
         
     except KeyboardInterrupt:
@@ -129,6 +163,7 @@ def search(
 def download(
     ctx: typer.Context,
     model_id: Optional[str] = typer.Argument(None, help="Model ID to download"),
+    backend: Optional[str] = typer.Option(None, "--backend", "-b", help="Backend to use (ollama/mlx)"),
     interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactive selection"),
     force: bool = typer.Option(False, "--force", "-f", help="Force download if exists"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
@@ -139,28 +174,39 @@ def download(
     try:
         base_cli = common_setup(ctx, verbose, quiet, config)
         
+        # Get backend
+        manager = get_backend_manager()
+        backend_obj = manager.get_backend(backend)
+        
         # Interactive selection if no model provided
         if interactive or not model_id:
-            model_id = select_model_for_download()
+            model_id = select_model_for_download(backend_obj)
             if not model_id:
                 return
         
         # Check if already installed
         if not force:
-            installed = get_installed_models()
+            installed = backend_obj.list_models()
             if any(m.id == model_id for m in installed):
                 show_info(f"Model {model_id} already installed")
                 if not confirm_action("Download anyway?"):
                     return
         
-        show_info(f"Downloading {model_id}...")
+        show_info(f"Downloading {model_id} using {backend or 'default'} backend...")
+        
+        # Progress callback
+        def progress_callback(message: str):
+            if verbose:
+                console.print(f"  {message}")
         
         # Download model
-        model_info = download_model(model_id)
+        model_info = backend_obj.download_model(model_id, progress_callback if verbose else None)
         
-        show_success(f"Successfully downloaded {model_info.display_name}")
-        console.print(f"  Category: {model_info.category}")
+        show_success(f"Successfully downloaded {model_info.name}")
+        console.print(f"  Backend: {backend or 'default'}")
         console.print(f"  Model ID: {model_info.id}")
+        if model_info.size:
+            console.print(f"  Size: {model_info.size}")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt()
@@ -263,9 +309,9 @@ def info(
         base_cli.handle_error(e)
 
 
-def select_model_for_download() -> Optional[str]:
+def select_model_for_download(backend_obj) -> Optional[str]:
     """Interactive model selection for download."""
-    available = list_available_models()
+    available = backend_obj.search_models()
     
     if not available:
         show_error("No models available for download")
@@ -274,16 +320,15 @@ def select_model_for_download() -> Optional[str]:
     console.print("🔍 Available Models for Download:")
     console.print("=" * 50)
     
-    for i, model_id in enumerate(available, 1):
-        from ..models.categories import categorize_model
-        model_info = categorize_model(model_id)
-        console.print(f"  {i:2d}. {model_info.display_name}")
+    for i, model in enumerate(available, 1):
+        size_info = f" ({model.size})" if model.size else ""
+        console.print(f"  {i:2d}. {model.name}{size_info}")
     
     try:
         choice = typer.prompt("\nSelect model number", type=int)
         
         if 1 <= choice <= len(available):
-            return available[choice - 1]
+            return available[choice - 1].id
         else:
             show_error("Invalid selection")
             return None

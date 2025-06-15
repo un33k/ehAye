@@ -1,6 +1,6 @@
 # ehAye Local
 
-A modular, professional-grade LLM interface optimized for Apple Silicon with MLX.
+A modular, professional-grade LLM interface with dual backend support: Ollama for easy model access and MLX for Apple Silicon optimization.
 
 ## 🚀 Quick Start
 
@@ -10,7 +10,7 @@ A modular, professional-grade LLM interface optimized for Apple Silicon with MLX
 
 ### Installation
 
-1. **Bootstrap the environment:**
+1. **Bootstrap the environment (installs Python, MLX, and Ollama):**
    ```bash
    ./bootstrap.sh
    ```
@@ -22,8 +22,16 @@ A modular, professional-grade LLM interface optimized for Apple Silicon with MLX
 
 3. **Download a model:**
    ```bash
-   ehaye-models search          # or: ehaye-models s
-   ehaye-models download phi2   # or: ehaye-models d phi2
+   # Via Ollama (no rate limits!)
+   ehaye-models search --backend ollama     # or: ehaye-models s -b ollama
+   ehaye-models download phi3 --backend ollama
+   
+   # Via MLX (Apple Silicon optimized)  
+   ehaye-models search --backend mlx        # or: ehaye-models s -b mlx
+   ehaye-models download phi2 --backend mlx
+   
+   # Quick Ollama method
+   ./scripts/ollama-launch pull phi3
    ```
 
 4. **Start chatting:**
@@ -33,23 +41,39 @@ A modular, professional-grade LLM interface optimized for Apple Silicon with MLX
 
 ## ⚡ Quick CLI Usage
 
-Power users can use short aliases for faster model management:
+### Dual Backend Support
 ```bash
-ehaye-models s              # Search models
-ehaye-models s "phi"        # Search for "phi" models
-ehaye-models d phi-2        # Download phi-2 model
-ehaye-models l              # List installed models
-ehaye-models r phi-2        # Remove phi-2 model
-ehaye-models i phi-2        # Show phi-2 info
+# Ollama backend (no rate limits, easy downloads)
+ehaye-models s -b ollama              # Search Ollama models
+ehaye-models d phi3 -b ollama         # Download via Ollama
+ehaye-models l -b ollama              # List Ollama models
+
+# MLX backend (Apple Silicon optimized)
+ehaye-models s -b mlx                 # Search MLX models  
+ehaye-models d phi2 -b mlx            # Download via MLX
+ehaye-models l -b mlx                 # List MLX models
+
+# Default backend (Ollama)
+ehaye-models s                        # Uses default backend
+ehaye-models d phi3                   # Downloads via Ollama
+```
+
+### Quick Ollama Scripts
+```bash
+./scripts/ollama-launch pull phi3     # Download model
+./scripts/ollama-launch run phi3      # Interactive chat
+./scripts/ollama-launch list          # List models
+./scripts/ollama-launch start         # Start service
 ```
 
 ## 🏗️ Architecture
 
-ehAye Local follows a clean, modular architecture with strict separation of concerns:
+ehAye Local follows a clean, modular architecture with dual backend support:
 
 ```
 src/
 ├── core/           # Configuration, environment, logging, exceptions
+├── backends/       # Backend implementations (Ollama, MLX)
 ├── models/         # Model management (download, categorization, registry)
 ├── llm/           # LLM operations (chat, generation, prompts, streaming)
 ├── benchmarks/    # Performance testing and reporting
@@ -58,10 +82,16 @@ src/
 ```
 
 ### Key Principles
+- **Dual Backend Design**: Ollama for easy access, MLX for optimization
 - **Modular Design**: Each module is self-contained and under 200 lines
 - **Configuration-Driven**: TOML-based configuration system
 - **Professional Standards**: Type hints, error handling, logging, tests
-- **Apple Silicon Optimized**: Native MLX integration and GPU utilization
+- **Rate Limit Avoidance**: Ollama bypasses Hugging Face restrictions
+
+### Backend Strategy
+- **Ollama Path**: Easy install, download, run, and test LLMs directly
+- **MLX Path**: Use Ollama for downloads, MLX for optimized inference
+- **Unified Interface**: Same CLI commands work with both backends
 
 ## 📦 Available Commands
 
@@ -74,19 +104,32 @@ ehaye-chat models                   # List available models
 
 ### Model Management
 ```bash
-# Full commands
-ehaye-models list                   # List installed models
-ehaye-models search [query]         # Search available models
-ehaye-models download <model-id>    # Download and install
-ehaye-models remove <model-id>      # Remove model
-ehaye-models info <model-id>        # Show model details
+# Backend-specific commands
+ehaye-models list --backend ollama         # List Ollama models
+ehaye-models search --backend mlx          # Search MLX models  
+ehaye-models download phi3 --backend ollama # Download via Ollama
+ehaye-models remove phi2 --backend mlx     # Remove MLX model
+ehaye-models info phi3 --backend ollama    # Show Ollama model info
 
-# Short aliases (same functionality)
-ehaye-models l                      # List (alias)
-ehaye-models s [query]              # Search (alias)
-ehaye-models d <model-id>           # Download (alias)
-ehaye-models r <model-id>           # Remove (alias)
-ehaye-models i <model-id>           # Info (alias)
+# Short aliases with backends
+ehaye-models l -b ollama            # List Ollama models
+ehaye-models s -b mlx              # Search MLX models
+ehaye-models d phi3 -b ollama      # Download via Ollama
+ehaye-models r phi2 -b mlx         # Remove MLX model
+ehaye-models i phi3 -b ollama      # Info for Ollama model
+
+# Default backend (Ollama)
+ehaye-models list                   # Uses default backend
+ehaye-models search [query]         # Search default backend
+ehaye-models download <model-id>    # Download via default
+```
+
+### Quick Ollama Operations
+```bash
+./scripts/ollama-launch pull phi3   # Download model directly
+./scripts/ollama-launch run phi3    # Start interactive chat
+./scripts/ollama-launch list        # List all models
+./scripts/ollama-launch start       # Start Ollama service
 ```
 
 ### Performance Benchmarking
@@ -111,6 +154,11 @@ ehaye-system setup                  # Initialize system
 [paths]
 cache_dir = "~/.cache/ehaye"
 models_dir = "~/.cache/ehaye/models"
+
+[models]
+default_backend = "ollama"    # "ollama" or "mlx"
+backends = ["ollama", "mlx"]  # Available backends
+categories = ["tiny", "small", "medium", "large", "code"]
 
 [performance]
 omp_num_threads = 8
@@ -176,11 +224,13 @@ mypy src/                   # Type checking
 - Rich terminal output with syntax highlighting
 
 ### Model Management
+- **Dual Backend Support**: Ollama and MLX backends with unified interface
+- **Rate Limit Avoidance**: Ollama backend bypasses Hugging Face restrictions
 - Automatic model categorization and metadata
 - Intelligent caching and cleanup
 - Model search and filtering with short aliases
 - Size estimation and resource planning
-- Registry-based tracking
+- Registry-based tracking for both backends
 - Convenient CLI with both full commands and single-letter shortcuts
 
 ### Performance Benchmarking
@@ -213,12 +263,15 @@ mypy src/                   # Type checking
 
 ## 🔮 Roadmap
 
+- [x] **Dual Backend Architecture**: Ollama + MLX support
+- [x] **Rate Limit Solution**: Ollama backend implementation
+- [ ] **Ollama→MLX Conversion**: Convert Ollama models to MLX format
+- [ ] **Backend Auto-switching**: Intelligent backend selection
 - [ ] **Web Interface**: React-based web UI for remote access
 - [ ] **API Server**: FastAPI backend for programmatic access
 - [ ] **Plugin System**: Extensible architecture for custom tools
 - [ ] **Model Fine-tuning**: Local model training and adaptation
 - [ ] **Multi-modal Support**: Image and document processing
-- [ ] **Distributed Computing**: Multi-device model execution
 
 ## 🤝 Contributing
 
@@ -242,11 +295,12 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-- **MLX Team**: For the excellent Apple Silicon ML framework
+- **Ollama Team**: For the excellent local LLM management platform
+- **MLX Team**: For the outstanding Apple Silicon ML framework
 - **Hugging Face**: For the transformers ecosystem and model hub
 - **Rich**: For beautiful terminal output
 - **Typer**: For elegant CLI development
 
 ---
 
-**ehAye Local** - Professional LLM interface for Apple Silicon 🚀
+**ehAye Local** - Dual Backend LLM Interface: Ollama + MLX 🚀

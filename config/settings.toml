@@ -23,6 +23,8 @@ categories = ["tiny", "small", "medium", "large", "code"]
 preferred_quantization = "4bit"
 auto_cleanup = true
 max_models_cached = 10
+default_backend = "ollama"  # "ollama" or "mlx"
+backends = ["ollama", "mlx"]
 
 [chat]
 # Chat interface settings

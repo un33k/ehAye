@@ -97,6 +97,34 @@ install_pyenv() {
     log_success "pyenv installed"
 }
 
+# Install Ollama if not present
+install_ollama() {
+    log_info "Checking for Ollama..."
+    
+    if command -v ollama >/dev/null 2>&1; then
+        log_success "Ollama already installed"
+        return 0
+    fi
+    
+    log_info "Installing Ollama..."
+    brew install ollama
+    
+    # Start Ollama service
+    log_info "Starting Ollama service..."
+    brew services start ollama
+    
+    # Wait a moment for service to start
+    sleep 2
+    
+    # Verify installation
+    if command -v ollama >/dev/null 2>&1; then
+        log_success "Ollama installed and service started"
+    else
+        log_error "Ollama installation failed"
+        exit 1
+    fi
+}
+
 # Install and set Python version
 setup_python() {
     log_info "Setting up Python $PYTHON_VERSION..."
@@ -181,6 +209,7 @@ main() {
     # Install dependencies
     install_homebrew
     install_pyenv
+    install_ollama
     
     # Setup Python environment
     setup_python
@@ -197,7 +226,7 @@ main() {
     echo ""
     echo "Next steps:"
     echo "  1. Activate the environment: source .venv/bin/activate"
-    echo "  2. Download models: ehaye-models search"
+    echo "  2. Download models: ehaye-models search (MLX) or ollama pull phi3 (Ollama)"
     echo "  3. Start chatting: ehaye-chat interactive"
     echo "  4. Run benchmarks: ehaye-benchmark validate"
     echo ""

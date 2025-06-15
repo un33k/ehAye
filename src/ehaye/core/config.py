@@ -47,6 +47,8 @@ class ModelConfig(BaseModel):
     preferred_quantization: str = "4bit"
     auto_cleanup: bool = True
     max_models_cached: int = 10
+    default_backend: str = "ollama"  # "ollama" or "mlx"
+    backends: List[str] = ["ollama", "mlx"]
 
 
 class ChatConfig(BaseModel):
