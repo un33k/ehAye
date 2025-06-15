@@ -1,6 +1,7 @@
 """Main Ali CLI entry point with subcommands using Click with Typer integration."""
 
 import sys
+import os
 import logging
 import click
 import subprocess
@@ -12,6 +13,14 @@ from .base import handle_keyboard_interrupt
 from ..core.logging import ehaye_logger
 
 console = Console()
+
+def check_virtualenv():
+    """Check if running in local virtual environment."""
+    venv_path = os.environ.get('VIRTUAL_ENV')
+    if not venv_path or '.venv' not in venv_path:
+        console.print("[red]Error: Must run from local virtual environment.[/red]")
+        console.print("[yellow]Run: deactivate >/dev/null 2>&1 || source .venv/bin/activate[/yellow]")
+        sys.exit(1)
 
 @click.group(name="ali", help="Ali - Artificial Line Interface for ehAye Local", invoke_without_command=True)
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
@@ -48,8 +57,29 @@ cli.add_command(ollama_cli, name="olla")
 @click.pass_context
 def mod_delegate(ctx):
     """Model management"""
-    # Use the legacy model CLI to support flag-based commands like -s -q
-    args = ["python", "-m", "ali.cli.model_cli"] + ctx.args
+    # Convert Click args to model_cli flags
+    args = ["python", "-m", "ali.cli.model_cli"]
+    
+    # Map common commands to flags
+    if ctx.args and ctx.args[0] == "list":
+        args.append("-l")
+        args.extend(ctx.args[1:])  # Add any additional args
+    elif ctx.args and ctx.args[0] == "search":
+        args.append("-s")
+        args.extend(ctx.args[1:])
+    elif ctx.args and ctx.args[0] == "download":
+        args.append("-d")
+        args.extend(ctx.args[1:])
+    elif ctx.args and ctx.args[0] == "remove":
+        args.append("-r")
+        args.extend(ctx.args[1:])
+    elif ctx.args and ctx.args[0] == "info":
+        args.append("-i")
+        args.extend(ctx.args[1:])
+    else:
+        # Pass through all args as-is for flag-based usage
+        args.extend(ctx.args)
+    
     result = subprocess.run(args)
     ctx.exit(result.returncode)
 
@@ -79,6 +109,9 @@ def sys_delegate(ctx):
 
 def main():
     """Main entry point for Ali CLI."""
+    # Check virtual environment first
+    check_virtualenv()
+    
     # Special handling for ollama -- passthrough
     if len(sys.argv) >= 3 and sys.argv[1] == "olla" and "--" in sys.argv:
         # Extract just the olla part and delegate to ollama_main

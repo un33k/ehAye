@@ -26,6 +26,15 @@ max_models_cached = 10
 default_backend = "ollama"  # "ollama" or "mlx"
 backends = ["ollama", "mlx"]
 
+[cli]
+# CLI command prefixes - change these to customize command names
+main_command = "ali"
+model_command = "mod"
+chat_command = "chat"
+performance_command = "perf"
+system_command = "sys"
+ollama_command = "olla"
+
 [chat]
 # Chat interface settings
 default_temperature = 0.7

@@ -27,17 +27,25 @@ def setup_logging(verbose: bool, debug: bool):
     ehaye_logger.setup(level=level, enable_rich=True)
 
 
+def get_command_prefix():
+    """Get the command prefix from config."""
+    try:
+        from ..core.config import get_config
+        config = get_config()
+        main_cmd = config.get('cli', {}).get('main_command', 'ali')
+        model_cmd = config.get('cli', {}).get('model_command', 'mod')
+        return f"{main_cmd} {model_cmd}"
+    except Exception:
+        # Fallback if config loading fails
+        return "ali mod"
+
 def show_help():
     """Show help message."""
-    import sys
-    import os
-    
-    # Get the command name (ali)
-    cmd_name = os.path.basename(sys.argv[0])
+    cmd_prefix = get_command_prefix()
     
     console.print("ehAye Models CLI - manage your local LLM models")
     console.print(f"\nUsage:")
-    console.print(f"  {cmd_name} [ACTION] [OPTIONS]")
+    console.print(f"  {cmd_prefix} [ACTION] [OPTIONS]")
     console.print("\nAction Flags (choose one):")
     console.print("  -l, --list       List installed models")
     console.print("  -s, --search     Search available models")
@@ -56,12 +64,12 @@ def show_help():
     console.print("  --interactive    Interactive selection")
     console.print("  --force          Force operation")
     console.print("\nExamples:")
-    console.print(f"  {cmd_name} -s -q deepseek -f 7B -p ollama")
-    console.print(f"  {cmd_name} -s -f 1B")
-    console.print(f"  {cmd_name} -l")
-    console.print(f"  {cmd_name} -d -m phi3")
-    console.print(f"  {cmd_name} -s -p mlx")
-    console.print(f"  {cmd_name} -l -p mlx")
+    console.print(f"  {cmd_prefix} -s -q deepseek -f 7B -p ollama")
+    console.print(f"  {cmd_prefix} -s -f 1B")
+    console.print(f"  {cmd_prefix} -l")
+    console.print(f"  {cmd_prefix} -d -m phi3")
+    console.print(f"  {cmd_prefix} -s -p mlx")
+    console.print(f"  {cmd_prefix} -l -p mlx")
 
 
 def main():
@@ -288,11 +296,9 @@ def handle_search(backend_obj, manager, params):
                 if model.family:
                     console.print(f"      Family: {model.family}")
         
-        import sys
-        import os
-        cmd_name = os.path.basename(sys.argv[0])
-        console.print(f"\n💡 Use: {cmd_name} -d -m <model_id> -p <provider>")
-        console.print(f"💡 Use: {cmd_name} -d --interactive")
+        cmd_prefix = get_command_prefix()
+        console.print(f"\n💡 Use: {cmd_prefix} -d -m <model_id> -p <provider>")
+        console.print(f"💡 Use: {cmd_prefix} -d --interactive")
         
     except Exception as e:
         logger.error(f"Failed to search models: {e}")
