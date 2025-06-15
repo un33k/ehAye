@@ -58,7 +58,7 @@ benchmark = [
 ]
 
 [project.scripts]
-ali = "ehaye.cli.main:main"
+ali = "ali.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/ehaye/ehaye-local"
@@ -66,10 +66,11 @@ Repository = "https://github.com/ehaye/ehaye-local"
 Issues = "https://github.com/ehaye/ehaye-local/issues"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["ali*"]
 
-[tool.setuptools.package-dir]
-"" = "src"
+[tool.setuptools.package-data]
+ali = ["**/*.toml"]
 
 [tool.black]
 line-length = 88
@@ -129,7 +130,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
-source = ["src"]
+source = ["ali"]
 omit = ["*/tests/*"]
 
 [tool.coverage.report]

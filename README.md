@@ -90,7 +90,7 @@ ali olla ps                           # Show running processes
 ehAye Local follows a clean, modular architecture with dual backend support:
 
 ```
-src/
+ali/
 ├── core/           # Configuration, environment, logging, exceptions
 ├── backends/       # Backend implementations (Ollama, MLX)
 ├── models/         # Model management (download, categorization, registry)
@@ -199,7 +199,7 @@ System-specific settings, environment variables, and validation parameters.
 ### Project Structure
 ```
 ehAye-Local/
-├── src/ehaye/              # Main source code
+├── ali/                    # Main source code
 ├── scripts/                # Entry point scripts
 ├── config/                 # Configuration files
 ├── tests/                  # Test suite
@@ -213,14 +213,14 @@ ehAye-Local/
 pytest                      # Run all tests
 pytest tests/unit/          # Unit tests only
 pytest tests/integration/   # Integration tests only
-pytest -v --cov=src        # With coverage
+pytest -v --cov=ali        # With coverage
 ```
 
 ### Code Quality
 ```bash
-ruff check src/             # Linting
-black src/                  # Code formatting
-mypy src/                   # Type checking
+ruff check ali/             # Linting
+black ali/                  # Code formatting
+mypy ali/                   # Type checking
 ```
 
 ## 🎯 Model Categories
