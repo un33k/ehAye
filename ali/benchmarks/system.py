@@ -124,12 +124,12 @@ class SystemMonitor:
     
     def get_gpu_info(self) -> Dict[str, any]:
         """Get GPU information (macOS specific)."""
-        info = {"memory_mb": None, "memory_gb": None, "available": False}
+        info = {"memory_mb": None, "memory_gb": None, "cores": None, "available": False}
         
         try:
             import subprocess
             
-            # Get GPU memory allocation
+            # Get GPU pre-allocated memory limit via iogpu
             result = subprocess.run(
                 ['sysctl', '-n', 'iogpu.wired_limit_mb'],
                 capture_output=True, text=True, timeout=5
@@ -144,7 +144,35 @@ class SystemMonitor:
                 })
                 
         except Exception as e:
-            logger.debug(f"GPU info not available: {e}")
+            logger.debug(f"GPU memory info not available: {e}")
+        
+        # Get GPU core count using system_profiler
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['system_profiler', 'SPDisplaysDataType'],
+                capture_output=True, text=True, timeout=10
+            )
+            
+            if result.returncode == 0:
+                output = result.stdout
+                # Look for "Total Number of Cores:" line
+                for line in output.split('\n'):
+                    if 'Total Number of Cores:' in line:
+                        # Extract number from line like "          Total Number of Cores: 10"
+                        cores_str = line.split(':')[1].strip()
+                        info["cores"] = int(cores_str)
+                        info["available"] = True
+                        break
+                    # Also look for GPU Core Count (alternative format)
+                    elif 'GPU Core Count:' in line:
+                        cores_str = line.split(':')[1].strip()
+                        info["cores"] = int(cores_str)
+                        info["available"] = True
+                        break
+                        
+        except Exception as e:
+            logger.debug(f"GPU core info not available: {e}")
         
         return info
     

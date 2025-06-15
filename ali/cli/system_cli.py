@@ -32,7 +32,7 @@ def info(
         base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
         
         console.print("🖥️  System Information")
-        console.print("=" * 50)
+        console.print()
         
         # Get comprehensive system info
         system_info = get_system_info()
@@ -40,11 +40,11 @@ def info(
         # Memory information
         memory_info = system_info.get("memory", {})
         console.print(Panel(
-            f"Total: {memory_info.get('total_gb', 0):.1f}GB\n"
+            f"Total:     {memory_info.get('total_gb', 0):.1f}GB\n"
             f"Available: {memory_info.get('available_gb', 0):.1f}GB\n"
-            f"Used: {memory_info.get('used_percent', 0):.1f}%\n"
-            f"Process: {memory_info.get('process_mb', 0):.1f}MB",
-            title="💾 Memory",
+            f"Used:      {memory_info.get('used_percent', 0):.1f}%\n"
+            f"Process:   {memory_info.get('process_mb', 0):.1f}MB",
+            title="💾 MEM",
             border_style="blue"
         ))
         
@@ -61,9 +61,21 @@ def info(
         # GPU information
         gpu_info = system_info.get("gpu", {})
         if gpu_info.get("available"):
+            gpu_details = []
+            
+            # Memory info (clarify it's pre-allocated)
+            if gpu_info.get('memory_mb'):
+                gpu_details.append(f"Memory: {gpu_info.get('memory_mb', 0)}MB ({gpu_info.get('memory_gb', 0):.1f}GB) (iogpu allocated)")
+            
+            # Core count
+            if gpu_info.get('cores'):
+                gpu_details.append(f"Cores:  {gpu_info.get('cores')}")
+            
+            # Status
+            gpu_details.append("Status: Available")
+            
             console.print(Panel(
-                f"Memory: {gpu_info.get('memory_mb', 0)}MB ({gpu_info.get('memory_gb', 0):.1f}GB)\n"
-                f"Status: Available",
+                "\n".join(gpu_details),
                 title="🎮 GPU",
                 border_style="yellow"
             ))
