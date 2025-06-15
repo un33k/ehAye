@@ -10,7 +10,7 @@ A modular, professional-grade LLM interface with dual backend support: Ollama fo
 
 ### Installation
 
-1. **Bootstrap the environment (installs Python, MLX, and Ollama):**
+1. **Bootstrap everything (installs Python, MLX, Ollama, and ehAye Local):**
    ```bash
    ./bootstrap.sh
    ```
@@ -22,13 +22,13 @@ A modular, professional-grade LLM interface with dual backend support: Ollama fo
 
 3. **Download a model:**
    ```bash
-   # Via Ollama (no rate limits!)
-   ehaye-models search --backend ollama     # or: ehaye-models s -b ollama
-   ehaye-models download phi3 --backend ollama
+   # Short command (recommended)
+   ali -s -q phi                  # Search for phi models
+   ali -d -m phi3:mini            # Download phi3:mini
    
-   # Via MLX (Apple Silicon optimized)  
-   ehaye-models search --backend mlx        # or: ehaye-models s -b mlx
-   ehaye-models download phi2 --backend mlx
+   # Or full command names (alternative)
+   ehaye-models -s -q phi         # Search for phi models  
+   ehaye-models -d -m phi3:mini   # Download phi3:mini
    
    # Quick Ollama method
    ./scripts/ollama-launch pull phi3
@@ -41,21 +41,27 @@ A modular, professional-grade LLM interface with dual backend support: Ollama fo
 
 ## ⚡ Quick CLI Usage
 
-### Dual Backend Support
+### Ali - Artificial Line Interpreter (Recommended)
 ```bash
-# Ollama backend (no rate limits, easy downloads)
-ehaye-models s -b ollama              # Search Ollama models
-ehaye-models d phi3 -b ollama         # Download via Ollama
-ehaye-models l -b ollama              # List Ollama models
+# Short & sweet commands
+ali -l                               # List models
+ali -s -q phi                        # Search for phi models
+ali -d -m phi3:mini                  # Download phi3:mini  
+ali -r -m old-model --force          # Remove model
 
-# MLX backend (Apple Silicon optimized)
-ehaye-models s -b mlx                 # Search MLX models  
-ehaye-models d phi2 -b mlx            # Download via MLX
-ehaye-models l -b mlx                 # List MLX models
+# With providers (default: ollama)
+ali -s -p ollama                     # Search Ollama models
+ali -s -p mlx                        # Search MLX models
+ali -d -m phi3 -p ollama             # Download via Ollama
+```
 
-# Default backend (Ollama)
-ehaye-models s                        # Uses default backend
-ehaye-models d phi3                   # Downloads via Ollama
+### Full Command Names (Alternative)
+```bash
+# Same functionality, longer names
+ehaye-models -l                      # List models
+ehaye-models -s -q phi               # Search for phi models
+ehaye-models -d -m phi3:mini         # Download phi3:mini
+ehaye-models -r -m old-model --force # Remove model
 ```
 
 ### Quick Ollama Scripts
@@ -104,24 +110,23 @@ ehaye-chat models                   # List available models
 
 ### Model Management
 ```bash
-# Backend-specific commands
-ehaye-models list --backend ollama         # List Ollama models
-ehaye-models search --backend mlx          # Search MLX models  
-ehaye-models download phi3 --backend ollama # Download via Ollama
-ehaye-models remove phi2 --backend mlx     # Remove MLX model
-ehaye-models info phi3 --backend ollama    # Show Ollama model info
+# Primary commands (recommended)
+ali -l                              # List installed models
+ali -s -q phi                       # Search for phi models
+ali -d -m phi3:mini                 # Download phi3:mini
+ali -r -m old-model --force         # Remove model
+ali -i -m phi3:mini                 # Show model info
 
-# Short aliases with backends
-ehaye-models l -b ollama            # List Ollama models
-ehaye-models s -b mlx              # Search MLX models
-ehaye-models d phi3 -b ollama      # Download via Ollama
-ehaye-models r phi2 -b mlx         # Remove MLX model
-ehaye-models i phi3 -b ollama      # Info for Ollama model
+# With specific providers
+ali -l -p ollama                    # List Ollama models
+ali -s -p mlx                       # Search MLX models
+ali -d -m phi3 -p ollama            # Download via Ollama
+ali -r -m phi2 -p mlx               # Remove MLX model
 
-# Default backend (Ollama)
-ehaye-models list                   # Uses default backend
-ehaye-models search [query]         # Search default backend
-ehaye-models download <model-id>    # Download via default
+# Alternative: Full command names
+ehaye-models -l                     # List models
+ehaye-models -s -q phi              # Search models
+ehaye-models -d -m phi3:mini        # Download model
 ```
 
 ### Quick Ollama Operations
