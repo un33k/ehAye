@@ -23,7 +23,7 @@ class BackendManager:
         ollama = OllamaBackend()
         if ollama.is_available():
             self._backends["ollama"] = ollama
-            logger.info("Ollama backend initialized")
+            logger.debug("Ollama backend initialized")
         else:
             logger.warning("Ollama backend not available")
         
@@ -31,7 +31,7 @@ class BackendManager:
         mlx = MLXBackend()
         if mlx.is_available():
             self._backends["mlx"] = mlx
-            logger.info("MLX backend initialized")
+            logger.debug("MLX backend initialized")
         else:
             logger.warning("MLX backend not available")
     

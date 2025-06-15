@@ -138,7 +138,7 @@ class ConfigManager:
             self.config_file = config_file
         
         if not self.config_file.exists():
-            logger.info(f"Config file {self.config_file} not found, using defaults")
+            logger.debug(f"Config file {self.config_file} not found, using defaults")
             self._config = EhAyeConfig()
             return self._config
         
@@ -147,7 +147,7 @@ class ConfigManager:
                 config_data = tomllib.load(f)
             
             self._config = EhAyeConfig(**config_data)
-            logger.info(f"Loaded configuration from {self.config_file}")
+            logger.debug(f"Loaded configuration from {self.config_file}")
             return self._config
             
         except Exception as e:
@@ -165,7 +165,7 @@ class ConfigManager:
             import toml
             with open(save_file, 'w') as f:
                 toml.dump(self._config.dict(), f)
-            logger.info(f"Saved configuration to {save_file}")
+            logger.debug(f"Saved configuration to {save_file}")
         except ImportError:
             logger.warning("toml package not available, cannot save config")
     

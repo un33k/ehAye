@@ -27,7 +27,7 @@ A modular, professional-grade LLM interface with dual backend support: Ollama fo
    ali mod download -m phi3:mini  # Download phi3:mini
    
    # Or use Ollama directly
-   ali ollama pull phi3
+   ali olla pull phi3
    ```
 
 4. **Start chatting:**
@@ -69,20 +69,20 @@ ali sys config                      # Show configuration
 ali sys setup                       # Initialize system
 
 # Direct Ollama operations
-ali ollama pull phi3                 # Download via Ollama
-ali ollama run phi3                  # Chat via Ollama
-ali ollama list                      # List Ollama models
-ali ollama start                     # Start Ollama service
+ali olla pull phi3                   # Download via Ollama
+ali olla run phi3                    # Chat via Ollama
+ali olla list                        # List Ollama models
+ali olla start                       # Start Ollama service
 ```
 
 ### Direct Ollama Operations
 ```bash
-ali ollama pull phi3                  # Download model
-ali ollama run phi3                   # Interactive chat
-ali ollama list                       # List models
-ali ollama start                      # Start service
-ali ollama stop                       # Stop service
-ali ollama ps                         # Show running processes
+ali olla pull phi3                    # Download model
+ali olla run phi3                     # Interactive chat
+ali olla list                         # List models
+ali olla start                        # Start service
+ali olla stop                         # Stop service
+ali olla ps                           # Show running processes
 ```
 
 ## 🏗️ Architecture
@@ -139,14 +139,14 @@ ali mod remove -m phi2 -p mlx       # Remove MLX model
 
 ### Direct Ollama Operations
 ```bash
-ali ollama pull phi3                # Download model directly
-ali ollama run phi3                 # Start interactive chat
-ali ollama list                     # List all models
-ali ollama start                    # Start Ollama service
-ali ollama stop                     # Stop Ollama service
-ali ollama ps                       # Show running processes
-ali ollama remove phi3              # Remove model
-ali ollama info phi3                # Show model info
+ali olla pull phi3                  # Download model directly
+ali olla run phi3                   # Start interactive chat
+ali olla list                       # List all models
+ali olla start                      # Start Ollama service
+ali olla stop                       # Stop Ollama service
+ali olla ps                         # Show running processes
+ali olla remove phi3                # Remove model
+ali olla info phi3                  # Show model info
 ```
 
 ### Performance Benchmarking
