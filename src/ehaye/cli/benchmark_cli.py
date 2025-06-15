@@ -158,7 +158,7 @@ def list_models(
                 if model.size_gb:
                     console.print(f"      Est. Size: {model.size_gb:.1f}GB")
         
-        console.print(f"\n💡 Use: ehaye-benchmark single --model <model_id>")
+        console.print(f"\n💡 Use: ali perf single --model <model_id>")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt()
@@ -198,7 +198,7 @@ def select_model_interactive() -> Optional[str]:
     models = get_installed_models()
     
     if not models:
-        show_error("No models found. Install models first using: ehaye-models download")
+        show_error("No models found. Install models first using: ali download")
         return None
     
     console.print("📊 Available Models for Benchmarking:")
@@ -227,7 +227,7 @@ def select_models_interactive() -> List[str]:
     models = get_installed_models()
     
     if not models:
-        show_error("No models found. Install models first using: ehaye-models download")
+        show_error("No models found. Install models first using: ali download")
         return []
     
     console.print("📊 Available Models for Comparison:")

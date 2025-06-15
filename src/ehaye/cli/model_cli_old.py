@@ -150,8 +150,8 @@ def search(
                 if model.family:
                     console.print(f"      Family: {model.family}")
         
-        console.print(f"\n💡 Use: ehaye-models download <model_id> --backend <backend>")
-        console.print(f"💡 Use: ehaye-models download --interactive")
+        console.print(f"\n💡 Use: ali download <model_id> --backend <backend>")
+        console.print(f"💡 Use: ali download --interactive")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt()

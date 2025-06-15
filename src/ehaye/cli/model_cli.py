@@ -32,7 +32,7 @@ def show_help():
     import sys
     import os
     
-    # Get the command name (ali or ehaye-models)
+    # Get the command name (ali)
     cmd_name = os.path.basename(sys.argv[0])
     
     console.print("ehAye Models CLI - manage your local LLM models")

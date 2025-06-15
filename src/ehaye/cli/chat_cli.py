@@ -137,7 +137,7 @@ def models(
                 console.print(f"      ID: {model.id}")
                 console.print(f"      Category: {model.category}")
         
-        console.print(f"\n💡 Use: ehaye-chat interactive --model <model_id>")
+        console.print(f"\n💡 Use: ali chat interactive --model <model_id>")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt()
@@ -150,7 +150,7 @@ def select_model_interactive() -> Optional[str]:
     models = get_installed_models()
     
     if not models:
-        show_error("No models found. Install models first using: ehaye-models download")
+        show_error("No models found. Install models first using: ali download")
         return None
     
     console.print("🤖 Available Models:")

@@ -22,54 +22,67 @@ A modular, professional-grade LLM interface with dual backend support: Ollama fo
 
 3. **Download a model:**
    ```bash
-   # Short command (recommended)
-   ali -s -q phi                  # Search for phi models
-   ali -d -m phi3:mini            # Download phi3:mini
+   # Ali - Artificial Line Interface
+   ali mod search -q phi          # Search for phi models
+   ali mod download -m phi3:mini  # Download phi3:mini
    
-   # Or full command names (alternative)
-   ehaye-models -s -q phi         # Search for phi models  
-   ehaye-models -d -m phi3:mini   # Download phi3:mini
-   
-   # Quick Ollama method
-   ./scripts/ollama-launch pull phi3
+   # Or use Ollama directly
+   ali ollama pull phi3
    ```
 
 4. **Start chatting:**
    ```bash
-   ehaye-chat interactive
+   ali chat interactive
    ```
 
 ## ⚡ Quick CLI Usage
 
-### Ali - Artificial Line Interpreter (Recommended)
+### Ali - Artificial Line Interface
 ```bash
-# Short & sweet commands
-ali -l                               # List models
-ali -s -q phi                        # Search for phi models
-ali -d -m phi3:mini                  # Download phi3:mini  
-ali -r -m old-model --force          # Remove model
+# Model management
+ali mod list                         # List models
+ali mod search -q phi                # Search for phi models
+ali mod download -m phi3:mini        # Download phi3:mini
+ali mod remove -m old-model --force  # Remove model
+ali mod info -m phi3:mini            # Show model info
 
-# With providers (default: ollama)
-ali -s -p ollama                     # Search Ollama models
-ali -s -p mlx                        # Search MLX models
-ali -d -m phi3 -p ollama             # Download via Ollama
+# With specific providers (default: ollama)
+ali mod search -p ollama             # Search Ollama models
+ali mod search -p mlx                # Search MLX models
+ali mod download -m phi3 -p ollama   # Download via Ollama
+ali mod remove -m phi2 -p mlx        # Remove MLX model
+
+# Chat interface
+ali chat interactive                 # Interactive chat
+ali chat single "Hello world"        # Single prompt
+ali chat models                      # List chat models
+
+# Performance benchmarking
+ali perf single -m phi3:mini         # Benchmark single model
+ali perf compare --all               # Compare all models
+ali perf validate                    # Check environment
+
+# System management
+ali sys info                         # System information
+ali sys validate                     # Environment validation
+ali sys config                      # Show configuration
+ali sys setup                       # Initialize system
+
+# Direct Ollama operations
+ali ollama pull phi3                 # Download via Ollama
+ali ollama run phi3                  # Chat via Ollama
+ali ollama list                      # List Ollama models
+ali ollama start                     # Start Ollama service
 ```
 
-### Full Command Names (Alternative)
+### Direct Ollama Operations
 ```bash
-# Same functionality, longer names
-ehaye-models -l                      # List models
-ehaye-models -s -q phi               # Search for phi models
-ehaye-models -d -m phi3:mini         # Download phi3:mini
-ehaye-models -r -m old-model --force # Remove model
-```
-
-### Quick Ollama Scripts
-```bash
-./scripts/ollama-launch pull phi3     # Download model
-./scripts/ollama-launch run phi3      # Interactive chat
-./scripts/ollama-launch list          # List models
-./scripts/ollama-launch start         # Start service
+ali ollama pull phi3                  # Download model
+ali ollama run phi3                   # Interactive chat
+ali ollama list                       # List models
+ali ollama start                      # Start service
+ali ollama stop                       # Stop service
+ali ollama ps                         # Show running processes
 ```
 
 ## 🏗️ Architecture
@@ -103,53 +116,52 @@ src/
 
 ### Chat Interface
 ```bash
-ehaye-chat interactive              # Interactive chat session
-ehaye-chat single "Your question"   # Single prompt
-ehaye-chat models                   # List available models
+ali chat interactive                 # Interactive chat session
+ali chat single "Your question"      # Single prompt
+ali chat models                      # List available models
 ```
 
 ### Model Management
 ```bash
-# Primary commands (recommended)
-ali -l                              # List installed models
-ali -s -q phi                       # Search for phi models
-ali -d -m phi3:mini                 # Download phi3:mini
-ali -r -m old-model --force         # Remove model
-ali -i -m phi3:mini                 # Show model info
+# Basic commands
+ali mod list                        # List installed models
+ali mod search -q phi               # Search for phi models
+ali mod download -m phi3:mini       # Download phi3:mini
+ali mod remove -m old-model --force # Remove model
+ali mod info -m phi3:mini           # Show model info
 
 # With specific providers
-ali -l -p ollama                    # List Ollama models
-ali -s -p mlx                       # Search MLX models
-ali -d -m phi3 -p ollama            # Download via Ollama
-ali -r -m phi2 -p mlx               # Remove MLX model
-
-# Alternative: Full command names
-ehaye-models -l                     # List models
-ehaye-models -s -q phi              # Search models
-ehaye-models -d -m phi3:mini        # Download model
+ali mod list -p ollama              # List Ollama models
+ali mod search -p mlx               # Search MLX models
+ali mod download -m phi3 -p ollama  # Download via Ollama
+ali mod remove -m phi2 -p mlx       # Remove MLX model
 ```
 
-### Quick Ollama Operations
+### Direct Ollama Operations
 ```bash
-./scripts/ollama-launch pull phi3   # Download model directly
-./scripts/ollama-launch run phi3    # Start interactive chat
-./scripts/ollama-launch list        # List all models
-./scripts/ollama-launch start       # Start Ollama service
+ali ollama pull phi3                # Download model directly
+ali ollama run phi3                 # Start interactive chat
+ali ollama list                     # List all models
+ali ollama start                    # Start Ollama service
+ali ollama stop                     # Stop Ollama service
+ali ollama ps                       # Show running processes
+ali ollama remove phi3              # Remove model
+ali ollama info phi3                # Show model info
 ```
 
 ### Performance Benchmarking
 ```bash
-ehaye-benchmark single -m <model>   # Benchmark single model
-ehaye-benchmark compare --all       # Compare all models
-ehaye-benchmark validate            # Check environment
+ali perf single -m <model>          # Benchmark single model
+ali perf compare --all              # Compare all models
+ali perf validate                   # Check environment
 ```
 
 ### System Management
 ```bash
-ehaye-system info                   # System information
-ehaye-system validate              # Environment validation
-ehaye-system config                 # Show configuration
-ehaye-system setup                  # Initialize system
+ali sys info                        # System information
+ali sys validate                    # Environment validation
+ali sys config                     # Show configuration
+ali sys setup                      # Initialize system
 ```
 
 ## ⚙️ Configuration

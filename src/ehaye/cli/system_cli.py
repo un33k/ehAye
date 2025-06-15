@@ -256,9 +256,9 @@ def setup(
         
         console.print("\n✅ System setup completed!")
         console.print("\n💡 Next steps:")
-        console.print("  1. Install models: ehaye-models search")
-        console.print("  2. Start chatting: ehaye-chat interactive")
-        console.print("  3. Run benchmarks: ehaye-benchmark validate")
+        console.print("  1. Install models: ali mod search")
+        console.print("  2. Start chatting: ali chat interactive")
+        console.print("  3. Run benchmarks: ali perf validate")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt()
