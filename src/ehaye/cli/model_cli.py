@@ -1,78 +1,183 @@
-"""Model management CLI interface."""
+"""Model management CLI interface with flag-based commands."""
 
-import sys
 from pathlib import Path
-from typing import List, Optional
-
+from typing import Optional
 import typer
 from rich.console import Console
-from rich.table import Table
 
 from ..core.logging import get_logger
-from ..backends.manager import get_backend_manager, get_backend
-from .base import BaseCLI, common_setup, confirm_action, handle_keyboard_interrupt, show_error, show_info, show_success
+from ..backends.manager import get_backend_manager
+from .base import common_setup, confirm_action, handle_keyboard_interrupt, show_error, show_info, show_success
 
-app = typer.Typer(name="models", help="Model management and installation")
 console = Console()
 logger = get_logger("cli.models")
 
 
-@app.command()
-def list(
-    ctx: typer.Context,
-    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category"),
-    search: Optional[str] = typer.Option(None, "--search", "-s", help="Search models"),
-    backend: Optional[str] = typer.Option(None, "--backend", "-b", help="Backend to use (ollama/mlx)"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
-):
-    """List installed models."""
+def main():
+    """Main entry point for model CLI."""
     try:
-        base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
+        # Create a simple argument parser using typer.run with context_settings
+        import sys
+        args = sys.argv[1:]  # Get command line arguments
+        
+        # Parse arguments manually for better control
+        actions = []
+        params = {}
+        
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            
+            if arg in ['-l', '--list']:
+                actions.append('list')
+            elif arg in ['-s', '--search']:
+                actions.append('search')
+            elif arg in ['-d', '--download']:
+                actions.append('download')
+            elif arg in ['-r', '--remove']:
+                actions.append('remove')
+            elif arg in ['-i', '--info']:
+                actions.append('info')
+            elif arg in ['-q', '--query']:
+                if i + 1 < len(args):
+                    params['query'] = args[i + 1]
+                    i += 1
+            elif arg in ['-f', '--flavor']:
+                if i + 1 < len(args):
+                    params['flavor'] = args[i + 1]
+                    i += 1
+            elif arg in ['-m', '--model']:
+                if i + 1 < len(args):
+                    params['model'] = args[i + 1]
+                    i += 1
+            elif arg in ['-b', '--backend']:
+                if i + 1 < len(args):
+                    params['backend'] = args[i + 1]
+                    i += 1
+            elif arg in ['-c', '--category']:
+                if i + 1 < len(args):
+                    params['category'] = args[i + 1]
+                    i += 1
+            elif arg in ['-v', '--verbose']:
+                params['verbose'] = True
+            elif arg == '--interactive':
+                params['interactive'] = True
+            elif arg == '--force':
+                params['force'] = True
+            elif arg in ['-h', '--help']:
+                show_help()
+                return
+            
+            i += 1
+        
+        # Set defaults
+        params.setdefault('verbose', False)
+        params.setdefault('interactive', False)
+        params.setdefault('force', False)
+        
+        # Check action count
+        if len(actions) == 0:
+            show_help()
+            return
+        elif len(actions) > 1:
+            show_error("Please specify only one action flag")
+            return
+        
+        # Setup context
+        try:
+            common_setup(None, params.get('verbose', False), False, None, skip_venv=True)
+        except:
+            pass  # Skip setup issues for now
         
         # Get backend manager
         manager = get_backend_manager()
+        backend_obj = manager.get_backend(params.get('backend'))
+        
+        # Execute action
+        action = actions[0]
+        if action == 'list':
+            handle_list(backend_obj, manager, params)
+        elif action == 'search':
+            handle_search(backend_obj, manager, params)
+        elif action == 'download':
+            handle_download(backend_obj, params)
+        elif action == 'remove':
+            handle_remove(backend_obj, params)
+        elif action == 'info':
+            handle_info(backend_obj, params)
+            
+    except KeyboardInterrupt:
+        handle_keyboard_interrupt()
+    except Exception as e:
+        logger.error(f"Command failed: {e}")
+        show_error(f"Command failed: {e}")
+
+
+def show_help():
+    """Show help message."""
+    console.print("ehAye Models CLI - manage your local LLM models")
+    console.print("\nUsage:")
+    console.print("  ehaye-models [ACTION] [OPTIONS]")
+    console.print("\nAction Flags (choose one):")
+    console.print("  -l, --list       List installed models")
+    console.print("  -s, --search     Search available models")
+    console.print("  -d, --download   Download a model")
+    console.print("  -r, --remove     Remove a model")
+    console.print("  -i, --info       Show model information")
+    console.print("\nParameters:")
+    console.print("  -q, --query      Search query")
+    console.print("  -f, --flavor     Model flavor/size (e.g., 7B, mini)")
+    console.print("  -m, --model      Model ID to operate on")
+    console.print("  -b, --backend    Backend to use (ollama/mlx)")
+    console.print("  -c, --category   Filter by category")
+    console.print("\nOptions:")
+    console.print("  -v, --verbose    Verbose output")
+    console.print("  --interactive    Interactive selection")
+    console.print("  --force          Force operation")
+    console.print("\nExamples:")
+    console.print("  ehaye-models -s -q deepseek -f 7B -b ollama")
+    console.print("  ehaye-models -s -f 1B -b ollama")
+    console.print("  ehaye-models -l -b ollama")
+    console.print("  ehaye-models -d -m phi3 -b ollama")
+
+
+def handle_list(backend_obj, manager, params):
+    """Handle list operation."""
+    try:
+        backend = params.get('backend')
+        query = params.get('query')
+        category = params.get('category')
+        flavor = params.get('flavor')
+        verbose = params.get('verbose', False)
         
         if backend:
-            # List models from specific backend
-            if not manager.is_backend_available(backend):
-                show_error(f"Backend '{backend}' not available")
-                available = manager.list_backends()
-                if available:
-                    show_info(f"Available backends: {', '.join(available)}")
-                return
-            
-            backend_obj = manager.get_backend(backend)
             models = backend_obj.list_models()
-            
-            if search:
-                query_lower = search.lower()
-                models = [m for m in models if query_lower in m.name.lower() or query_lower in m.id.lower()]
-            
-            if category:
-                models = [m for m in models if m.family and category.lower() in m.family.lower()]
+            console.print(f"📦 Installed Models ({backend}):")
         else:
-            # List models from all backends
             all_models = manager.list_all_models()
             models = []
             for backend_name, backend_models in all_models.items():
                 for model in backend_models:
                     model.description = f"[{backend_name}] " + (model.description or "")
                     models.append(model)
-            
-            if search:
-                query_lower = search.lower()
-                models = [m for m in models if query_lower in m.name.lower() or query_lower in m.id.lower()]
-            
-            if category:
-                models = [m for m in models if m.family and category.lower() in m.family.lower()]
+            console.print("📦 Installed Models (All Backends):")
+        
+        # Apply filters
+        if query:
+            query_lower = query.lower()
+            models = [m for m in models if query_lower in m.name.lower() or query_lower in m.id.lower()]
+        
+        if category:
+            models = [m for m in models if m.family and category.lower() in m.family.lower()]
+        
+        if flavor:
+            flavor_lower = flavor.lower()
+            models = [m for m in models if m.size and flavor_lower in m.size.lower()]
         
         if not models:
             show_error("No models found")
             return
         
-        console.print("📦 Installed Models:")
         console.print("=" * 60)
         
         for i, model in enumerate(models, 1):
@@ -81,57 +186,44 @@ def list(
             
             if verbose:
                 console.print(f"      ID: {model.id}")
-                console.print(f"      Backend: {model.description.split(']')[0][1:] if '[' in model.description else 'unknown'}")
+                if '[' in (model.description or ''):
+                    backend_name = model.description.split(']')[0][1:]
+                    console.print(f"      Backend: {backend_name}")
                 if model.family:
                     console.print(f"      Family: {model.family}")
         
         console.print(f"\n💡 Total: {len(models)} model(s) installed")
         
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt()
     except Exception as e:
-        base_cli.handle_error(e)
+        logger.error(f"Failed to list models: {e}")
+        show_error(f"Failed to list models: {e}")
 
 
-@app.command("search", short_help="Search models")
-def search(
-    ctx: typer.Context,
-    query: Optional[str] = typer.Argument(None, help="Search query"),
-    backend: Optional[str] = typer.Option(None, "--backend", "-b", help="Backend to use (ollama/mlx)"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
-):
-    """Search available models for download."""
+def handle_search(backend_obj, manager, params):
+    """Handle search operation."""
     try:
-        base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
-        
-        # Get backend manager
-        manager = get_backend_manager()
+        backend = params.get('backend')
+        query = params.get('query')
+        flavor = params.get('flavor')
+        verbose = params.get('verbose', False)
         
         if backend:
-            # Search models from specific backend
-            if not manager.is_backend_available(backend):
-                show_error(f"Backend '{backend}' not available")
-                available = manager.list_backends()
-                if available:
-                    show_info(f"Available backends: {', '.join(available)}")
-                return
-            
-            backend_obj = manager.get_backend(backend)
             models = backend_obj.search_models(query)
-            
             console.print(f"🔍 Available Models for Download ({backend}):")
         else:
-            # Search models from all backends
             all_models = manager.search_all_models(query)
             models = []
             for backend_name, backend_models in all_models.items():
                 for model in backend_models:
                     model.description = f"[{backend_name}] " + (model.description or "")
                     models.append(model)
-            
             console.print("🔍 Available Models for Download (All Backends):")
+        
+        # Apply flavor filter
+        if flavor:
+            flavor_lower = flavor.lower()
+            models = [m for m in models if m.size and flavor_lower in m.size.lower() or 
+                     flavor_lower in m.id.lower() or flavor_lower in m.name.lower()]
         
         if not models:
             show_error("No models found")
@@ -145,44 +237,36 @@ def search(
             
             if verbose:
                 console.print(f"      ID: {model.id}")
-                backend_name = model.description.split(']')[0][1:] if '[' in model.description else 'unknown'
-                console.print(f"      Backend: {backend_name}")
+                if '[' in (model.description or ''):
+                    backend_name = model.description.split(']')[0][1:]
+                    console.print(f"      Backend: {backend_name}")
                 if model.family:
                     console.print(f"      Family: {model.family}")
         
-        console.print(f"\n💡 Use: ehaye-models download <model_id> --backend <backend>")
-        console.print(f"💡 Use: ehaye-models download --interactive")
+        console.print(f"\n💡 Use: ehaye-models -d -m <model_id> -b <backend>")
+        console.print(f"💡 Use: ehaye-models -d --interactive")
         
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt()
     except Exception as e:
-        base_cli.handle_error(e)
+        logger.error(f"Failed to search models: {e}")
+        show_error(f"Failed to search models: {e}")
 
 
-@app.command("download", short_help="Download models")
-def download(
-    ctx: typer.Context,
-    model_id: Optional[str] = typer.Argument(None, help="Model ID to download"),
-    backend: Optional[str] = typer.Option(None, "--backend", "-b", help="Backend to use (ollama/mlx)"),
-    interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactive selection"),
-    force: bool = typer.Option(False, "--force", "-f", help="Force download if exists"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
-):
-    """Download and install a model."""
+def handle_download(backend_obj, params):
+    """Handle download operation."""
     try:
-        base_cli = common_setup(ctx, verbose, quiet, config)
+        model_id = params.get('model')
+        interactive = params.get('interactive', False)
+        force = params.get('force', False)
+        verbose = params.get('verbose', False)
         
-        # Get backend
-        manager = get_backend_manager()
-        backend_obj = manager.get_backend(backend)
-        
-        # Interactive selection if no model provided
         if interactive or not model_id:
             model_id = select_model_for_download(backend_obj)
             if not model_id:
                 return
+        
+        if not model_id:
+            show_error("Please specify a model ID with -m/--model or use --interactive")
+            return
         
         # Check if already installed
         if not force:
@@ -192,7 +276,7 @@ def download(
                 if not confirm_action("Download anyway?"):
                     return
         
-        show_info(f"Downloading {model_id} using {backend or 'default'} backend...")
+        show_info(f"Downloading {model_id}...")
         
         # Progress callback
         def progress_callback(message: str):
@@ -203,36 +287,30 @@ def download(
         model_info = backend_obj.download_model(model_id, progress_callback if verbose else None)
         
         show_success(f"Successfully downloaded {model_info.name}")
-        console.print(f"  Backend: {backend or 'default'}")
         console.print(f"  Model ID: {model_info.id}")
         if model_info.size:
             console.print(f"  Size: {model_info.size}")
-        
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt()
+            
     except Exception as e:
-        base_cli.handle_error(e)
+        logger.error(f"Failed to download model: {e}")
+        show_error(f"Failed to download model: {e}")
 
 
-@app.command()
-def remove(
-    ctx: typer.Context,
-    model_id: Optional[str] = typer.Argument(None, help="Model ID to remove"),
-    interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactive selection"),
-    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
-):
-    """Remove an installed model."""
+def handle_remove(backend_obj, params):
+    """Handle remove operation."""
     try:
-        base_cli = common_setup(ctx, verbose, quiet, config)
+        model_id = params.get('model')
+        interactive = params.get('interactive', False)
+        force = params.get('force', False)
         
-        # Interactive selection if no model provided
         if interactive or not model_id:
-            model_id = select_installed_model()
+            model_id = select_installed_model(backend_obj)
             if not model_id:
                 return
+        
+        if not model_id:
+            show_error("Please specify a model ID with -m/--model or use --interactive")
+            return
         
         # Confirm removal
         if not force:
@@ -242,71 +320,67 @@ def remove(
         show_info(f"Removing {model_id}...")
         
         # Remove model
-        if remove_model(model_id):
+        if backend_obj.remove_model(model_id):
             show_success(f"Successfully removed {model_id}")
         else:
             show_error(f"Failed to remove {model_id}")
-        
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt()
+            
     except Exception as e:
-        base_cli.handle_error(e)
+        logger.error(f"Failed to remove model: {e}")
+        show_error(f"Failed to remove model: {e}")
 
 
-@app.command()
-def info(
-    ctx: typer.Context,
-    model_id: Optional[str] = typer.Argument(None, help="Model ID to show info for"),
-    interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactive selection"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
-):
-    """Show detailed model information."""
+def handle_info(backend_obj, params):
+    """Handle info operation."""
     try:
-        base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
+        model_id = params.get('model')
+        interactive = params.get('interactive', False)
         
-        # Interactive selection if no model provided
         if interactive or not model_id:
-            model_id = select_installed_model()
+            model_id = select_installed_model(backend_obj)
             if not model_id:
                 return
         
-        # Find model
-        models = get_installed_models()
-        model_info = next((m for m in models if m.id == model_id), None)
+        if not model_id:
+            show_error("Please specify a model ID with -m/--model or use --interactive")
+            return
+        
+        # Get model info
+        model_info = backend_obj.get_model_info(model_id)
         
         if not model_info:
             show_error(f"Model {model_id} not found")
             return
         
         # Display info
-        console.print(f"\n📋 Model Information: {model_info.display_name}")
+        console.print(f"\n📋 Model Information: {model_info.name}")
         console.print("=" * 60)
         
+        from rich.table import Table
         table = Table(show_header=False)
         table.add_column("Property", style="bold blue")
         table.add_column("Value")
         
         table.add_row("Model ID", model_info.id)
         table.add_row("Name", model_info.name)
-        table.add_row("Category", f"{model_info.emoji} {model_info.category}")
         
-        if model_info.size_params:
-            table.add_row("Parameters", model_info.size_params)
+        if model_info.family:
+            table.add_row("Family", model_info.family)
         
-        if model_info.size_gb:
-            table.add_row("Est. Size", f"{model_info.size_gb:.1f}GB")
+        if model_info.size:
+            table.add_row("Size", model_info.size)
         
-        if model_info.quantization:
-            table.add_row("Quantization", model_info.quantization)
+        if model_info.format:
+            table.add_row("Format", model_info.format)
+        
+        if model_info.description:
+            table.add_row("Description", model_info.description)
         
         console.print(table)
         
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt()
     except Exception as e:
-        base_cli.handle_error(e)
+        logger.error(f"Failed to get model info: {e}")
+        show_error(f"Failed to get model info: {e}")
 
 
 def select_model_for_download(backend_obj) -> Optional[str]:
@@ -337,9 +411,9 @@ def select_model_for_download(backend_obj) -> Optional[str]:
         return None
 
 
-def select_installed_model() -> Optional[str]:
+def select_installed_model(backend_obj) -> Optional[str]:
     """Interactive selection of installed model."""
-    models = get_installed_models()
+    models = backend_obj.list_models()
     
     if not models:
         show_error("No models installed")
@@ -349,7 +423,8 @@ def select_installed_model() -> Optional[str]:
     console.print("=" * 50)
     
     for i, model in enumerate(models, 1):
-        console.print(f"  {i:2d}. {model.display_name}")
+        size_info = f" ({model.size})" if model.size else ""
+        console.print(f"  {i:2d}. {model.name}{size_info}")
     
     try:
         choice = typer.prompt("\nSelect model number", type=int)
@@ -362,25 +437,6 @@ def select_installed_model() -> Optional[str]:
             
     except (ValueError, typer.Abort):
         return None
-
-
-# Register command aliases
-app.command("s", help="Search available models (alias for search)")(search)
-app.command("d", help="Download models (alias for download)")(download)
-app.command("l", help="List installed models (alias for list)")(list)
-app.command("r", help="Remove models (alias for remove)")(remove)
-app.command("i", help="Show model info (alias for info)")(info)
-
-
-def main():
-    """Main entry point for model CLI."""
-    try:
-        app()
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt()
-    except Exception as e:
-        console.print(f"[red]Fatal error: {e}[/red]")
-        sys.exit(1)
 
 
 if __name__ == "__main__":
