@@ -78,8 +78,8 @@ def list(
         base_cli.handle_error(e)
 
 
-@app.command()
-def search_available(
+@app.command("search", short_help="Search models")
+def search(
     ctx: typer.Context,
     query: Optional[str] = typer.Argument(None, help="Search query"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
@@ -125,7 +125,7 @@ def search_available(
         base_cli.handle_error(e)
 
 
-@app.command()
+@app.command("download", short_help="Download models")
 def download(
     ctx: typer.Context,
     model_id: Optional[str] = typer.Argument(None, help="Model ID to download"),
@@ -317,6 +317,14 @@ def select_installed_model() -> Optional[str]:
             
     except (ValueError, typer.Abort):
         return None
+
+
+# Register command aliases
+app.command("s", help="Search available models (alias for search)")(search)
+app.command("d", help="Download models (alias for download)")(download)
+app.command("l", help="List installed models (alias for list)")(list)
+app.command("r", help="Remove models (alias for remove)")(remove)
+app.command("i", help="Show model info (alias for info)")(info)
 
 
 def main():

@@ -22,14 +22,26 @@ A modular, professional-grade LLM interface optimized for Apple Silicon with MLX
 
 3. **Download a model:**
    ```bash
-   ehaye-models search
-   ehaye-models download phi2  # or any model alias
+   ehaye-models search          # or: ehaye-models s
+   ehaye-models download phi2   # or: ehaye-models d phi2
    ```
 
 4. **Start chatting:**
    ```bash
    ehaye-chat interactive
    ```
+
+## ⚡ Quick CLI Usage
+
+Power users can use short aliases for faster model management:
+```bash
+ehaye-models s              # Search models
+ehaye-models s "phi"        # Search for "phi" models
+ehaye-models d phi-2        # Download phi-2 model
+ehaye-models l              # List installed models
+ehaye-models r phi-2        # Remove phi-2 model
+ehaye-models i phi-2        # Show phi-2 info
+```
 
 ## 🏗️ Architecture
 
@@ -62,11 +74,19 @@ ehaye-chat models                   # List available models
 
 ### Model Management
 ```bash
+# Full commands
 ehaye-models list                   # List installed models
 ehaye-models search [query]         # Search available models
 ehaye-models download <model-id>    # Download and install
 ehaye-models remove <model-id>      # Remove model
 ehaye-models info <model-id>        # Show model details
+
+# Short aliases (same functionality)
+ehaye-models l                      # List (alias)
+ehaye-models s [query]              # Search (alias)
+ehaye-models d <model-id>           # Download (alias)
+ehaye-models r <model-id>           # Remove (alias)
+ehaye-models i <model-id>           # Info (alias)
 ```
 
 ### Performance Benchmarking
@@ -158,9 +178,10 @@ mypy src/                   # Type checking
 ### Model Management
 - Automatic model categorization and metadata
 - Intelligent caching and cleanup
-- Model search and filtering
+- Model search and filtering with short aliases
 - Size estimation and resource planning
 - Registry-based tracking
+- Convenient CLI with both full commands and single-letter shortcuts
 
 ### Performance Benchmarking
 - Comprehensive performance metrics
