@@ -398,61 +398,7 @@ def main():
         console.print(f"[red]Fatal error: {e}[/red]")
         sys.exit(1)
 
-# Create a Typer-compatible wrapper for integration with existing main CLI
-import typer
-app = typer.Typer(name="olla", help="Direct Ollama operations")
-
-@app.callback(invoke_without_command=True)
-def typer_wrapper(ctx: typer.Context):
-    """Typer wrapper for compatibility."""
-    # If no subcommand was invoked, show help
-    if ctx.invoked_subcommand is None:
-        console.print("Use 'ali olla --help' for available commands or 'ali olla -- <ollama_args>' for direct passthrough")
-
-# Add basic commands as Typer wrappers
-@app.command()
-def start():
-    """Start Ollama service."""
-    try:
-        start_ollama_service()
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt()
-    except Exception as e:
-        show_error(f"Failed to start Ollama: {e}")
-
-@app.command()
-def list():
-    """List available Ollama models."""
-    try:
-        if not start_ollama_service():
-            return
-        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
-            console.print("📦 Available Ollama Models:")
-            console.print(result.stdout)
-        else:
-            show_error("Failed to list models")
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt()
-    except Exception as e:
-        show_error(f"Error listing models: {e}")
-
-@app.command()
-def ps():
-    """Show running Ollama processes."""
-    try:
-        if not start_ollama_service():
-            return
-        result = subprocess.run(["ollama", "ps"], capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
-            console.print("🔄 Running Ollama Processes:")
-            console.print(result.stdout)
-        else:
-            show_error("Failed to show running processes")
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt()
-    except Exception as e:
-        show_error(f"Error showing processes: {e}")
+# Legacy Typer wrapper removed - ollama_cli now uses pure Click interface
 
 if __name__ == "__main__":
     main()
