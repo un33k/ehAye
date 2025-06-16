@@ -14,6 +14,41 @@ from ..core.logging import ehaye_logger
 
 console = Console()
 
+def run_delegate_command(module_name, default_subcommand, ctx_args, valid_subcommands=None):
+    """Helper function to run delegate commands with proper error handling."""
+    args = ["python", "-m", f"ali.cli.{module_name}"]
+    
+    if not ctx_args:
+        # No args provided, use default subcommand
+        args.append(default_subcommand)
+    else:
+        # If first arg is a flag, prepend default subcommand
+        if ctx_args[0].startswith('-'):
+            args.extend([default_subcommand] + list(ctx_args))
+        # If first arg is a known subcommand, pass through
+        elif valid_subcommands and ctx_args[0] in valid_subcommands:
+            args.extend(ctx_args)
+        # Otherwise, prepend default subcommand
+        else:
+            args.extend([default_subcommand] + list(ctx_args))
+    
+    result = subprocess.run(args, capture_output=True, text=True)
+    
+    # Clean up error messages
+    if result.returncode != 0 and result.stderr:
+        error_output = result.stderr
+        # Replace internal module references
+        error_output = error_output.replace(f'python -m ali.cli.{module_name}', f'ali {module_name.replace("_cli", "")}')
+        # Filter out tracebacks
+        error_lines = error_output.split('\n')
+        clean_lines = [line for line in error_lines if not line.strip().startswith('Traceback') and not line.strip().startswith('File ')]
+        if clean_lines:
+            print('\n'.join(clean_lines), file=sys.stderr)
+    elif result.stdout:
+        console.print(result.stdout)
+    
+    return result.returncode
+
 def check_virtualenv():
     """Check if running in local virtual environment."""
     venv_path = os.environ.get('VIRTUAL_ENV')
@@ -57,76 +92,102 @@ cli.add_command(ollama_cli, name="olla")
 @click.pass_context
 def mod_delegate(ctx):
     """Model management"""
-    # Convert Click args to model_cli flags
+    # Model CLI uses flags, so special handling needed
     args = ["python", "-m", "ali.cli.model_cli"]
     
-    # Map common commands to flags
-    if ctx.args and ctx.args[0] == "list":
+    if not ctx.args:
+        # Default to list
         args.append("-l")
-        args.extend(ctx.args[1:])  # Add any additional args
-    elif ctx.args and ctx.args[0] == "search":
-        args.append("-s")
-        args.extend(ctx.args[1:])
-    elif ctx.args and ctx.args[0] == "download":
-        args.append("-d")
-        args.extend(ctx.args[1:])
-    elif ctx.args and ctx.args[0] == "remove":
-        args.append("-r")
-        args.extend(ctx.args[1:])
-    elif ctx.args and ctx.args[0] == "info":
-        args.append("-i")
-        args.extend(ctx.args[1:])
     else:
-        # Pass through all args as-is for flag-based usage
-        args.extend(ctx.args)
+        # Map common commands to flags
+        if ctx.args[0] == "list":
+            args.append("-l")
+            args.extend(ctx.args[1:])
+        elif ctx.args[0] == "search":
+            args.append("-s")
+            args.extend(ctx.args[1:])
+        elif ctx.args[0] == "download":
+            args.append("-d")
+            args.extend(ctx.args[1:])
+        elif ctx.args[0] == "remove":
+            args.append("-r")
+            args.extend(ctx.args[1:])
+        elif ctx.args[0] == "info":
+            args.append("-i")
+            args.extend(ctx.args[1:])
+        else:
+            # Pass through all args as-is for flag-based usage
+            args.extend(ctx.args)
     
-    result = subprocess.run(args)
+    result = subprocess.run(args, capture_output=True, text=True)
+    
+    # Clean up error messages
+    if result.returncode != 0 and result.stderr:
+        error_output = result.stderr.replace('python -m ali.cli.model_cli', 'ali mod')
+        error_lines = error_output.split('\n')
+        clean_lines = [line for line in error_lines if not line.strip().startswith('Traceback') and not line.strip().startswith('File ')]
+        if clean_lines:
+            print('\n'.join(clean_lines), file=sys.stderr)
+    elif result.stdout:
+        console.print(result.stdout)
+    
     ctx.exit(result.returncode)
 
 @cli.command(name="chat", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 @click.pass_context  
 def chat_delegate(ctx):
     """Chat interface"""
+    # Check for common mistakes and show helpful error
+    if ctx.args and ctx.args[0] in ['-l', '--list']:
+        console.print("[red]Error: -l/--list is not a valid option for chat.[/red]")
+        console.print("[yellow]Did you mean: ali mod list[/yellow]")
+        ctx.exit(1)
+    
+    valid_subcommands = ['interactive', 'single', 'models']
     args = ["python", "-m", "ali.cli.chat_cli"]
     
-    # If no args provided, default to interactive
     if not ctx.args:
+        # Default to interactive
         args.append("interactive")
-    else:
-        # Check for common mistakes and show helpful error
-        if ctx.args and ctx.args[0] in ['-l', '--list']:
-            console.print("[red]Error: -l/--list is not a valid option for chat.[/red]")
-            console.print("[yellow]Did you mean: ali mod list[/yellow]")
-            ctx.exit(1)
-        
+    elif ctx.args[0].startswith('-'):
         # If first arg is a flag, assume interactive mode
-        if ctx.args and ctx.args[0].startswith('-'):
-            args.extend(['interactive'] + list(ctx.args))
-        # If first arg is a known subcommand, pass through
-        elif ctx.args and ctx.args[0] in ['interactive', 'single', 'models']:
-            args.extend(ctx.args)
-        # Otherwise assume it's a prompt for single mode
-        else:
-            args.extend(['single'] + list(ctx.args))
+        args.extend(['interactive'] + list(ctx.args))
+    elif ctx.args[0] in valid_subcommands:
+        # Known subcommand, pass through
+        args.extend(ctx.args)
+    else:
+        # Assume it's a prompt for single mode
+        args.extend(['single'] + list(ctx.args))
     
-    result = subprocess.run(args)
+    result = subprocess.run(args, capture_output=True, text=True)
+    
+    # Clean up error messages
+    if result.returncode != 0 and result.stderr:
+        error_output = result.stderr.replace('python -m ali.cli.chat_cli', 'ali chat')
+        error_lines = error_output.split('\n')
+        clean_lines = [line for line in error_lines if not line.strip().startswith('Traceback') and not line.strip().startswith('File ')]
+        if clean_lines:
+            print('\n'.join(clean_lines), file=sys.stderr)
+    elif result.stdout:
+        console.print(result.stdout)
+    
     ctx.exit(result.returncode)
 
 @cli.command(name="perf", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 @click.pass_context
 def perf_delegate(ctx):
     """Performance benchmarking"""
-    args = ["python", "-m", "ali.cli.benchmark_cli"] + ctx.args
-    result = subprocess.run(args)  
-    ctx.exit(result.returncode)
+    valid_subcommands = ['single', 'compare', 'list-models', 'validate']
+    returncode = run_delegate_command('benchmark_cli', 'single', ctx.args, valid_subcommands)
+    ctx.exit(returncode)
 
 @cli.command(name="sys", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 @click.pass_context
 def sys_delegate(ctx):
     """System management"""
-    args = ["python", "-m", "ali.cli.system_cli"] + ctx.args
-    result = subprocess.run(args)
-    ctx.exit(result.returncode)
+    valid_subcommands = ['info', 'validate', 'config', 'setup', 'cleanup']
+    returncode = run_delegate_command('system_cli', 'info', ctx.args, valid_subcommands)
+    ctx.exit(returncode)
 
 def main():
     """Main entry point for Ali CLI."""
