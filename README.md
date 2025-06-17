@@ -14,7 +14,7 @@ A professional-grade local LLM interface optimized for Apple Silicon Macs, featu
 **Option 1: Automatic Setup (Recommended)**
 ```bash
 git clone <repository-url>
-cd ehAye-Local
+cd ehAye
 ./bootstrap.sh
 source .venv/bin/activate
 ```
@@ -22,7 +22,7 @@ source .venv/bin/activate
 **Option 2: Manual Setup**
 ```bash
 git clone <repository-url>
-cd ehAye-Local
+cd ehAye
 pip install -e .
 ```
 
@@ -239,7 +239,7 @@ pytest ali/cli/test_chat_cli.py::TestChatSession
 ```bash
 # Clone and setup
 git clone <repository-url>
-cd ehAye-Local
+cd ehAye
 ./bootstrap.sh
 source .venv/bin/activate
 
@@ -261,7 +261,7 @@ mypy ali/                         # Type checking
 
 ### Project Structure
 ```
-ehAye-Local/
+ehAye/
 ├── ali/                         # Main package
 │   ├── cli/test_*.py           # Co-located CLI tests
 │   ├── configuration/test_*.py # Co-located config tests

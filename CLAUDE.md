@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This document provides guidance to Claude Code (claude.ai/code) for working with the ehAye repository.
+This document provides guidance to Claude Code (claude.ai/code) for working with the `ehAye` repository. The project name is called `ehAye` and should be reflected throughout the code and docs.
 
 ## Project Overview
 
