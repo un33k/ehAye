@@ -100,10 +100,10 @@ llama3.2:1b         def456     1.3 GB   1 day ago"""
     def test_list_models_malformed_output(self, mock_run):
         """Test listing models with malformed output."""
         mock_run.return_value.returncode = 0
-        mock_run.return_value.stdout = "some random output\nwith no proper format"
+        mock_run.return_value.stdout = "invalid output format\nno tabs or proper structure"
         
         models = self.backend.list_models()
-        # Should handle gracefully and return empty list
+        # Should handle gracefully and skip malformed lines
         assert len(models) == 0
     
     def test_search_models_all(self):
@@ -143,7 +143,9 @@ llama3.2:1b         def456     1.3 GB   1 day ago"""
         """Test successful model download."""
         # Mock the process
         mock_process = Mock()
-        mock_process.stdout.readline.side_effect = [
+        
+        # Mock readline to return lines one by one and then stop
+        readline_values = [
             "pulling manifest\n",
             "downloading layer 1/3\n",
             "downloading layer 2/3\n", 
@@ -152,9 +154,20 @@ llama3.2:1b         def456     1.3 GB   1 day ago"""
             "writing manifest\n",
             "removing any unused layers\n",
             "success\n",
-            ""  # EOF
+            ""  # EOF - this ends the loop
         ]
-        mock_process.poll.side_effect = [None, None, None, None, None, None, None, None, 0]
+        
+        # Create an iterator that will properly handle StopIteration
+        def readline_side_effect():
+            for value in readline_values:
+                yield value
+        
+        readline_iter = readline_side_effect()
+        mock_process.stdout.readline.side_effect = lambda: next(readline_iter, "")
+        
+        # Mock poll to return None until the end, then 0
+        poll_values = [None] * (len(readline_values) - 1) + [0]
+        mock_process.poll.side_effect = poll_values
         mock_process.wait.return_value = 0
         mock_popen.return_value = mock_process
         
@@ -174,10 +187,18 @@ llama3.2:1b         def456     1.3 GB   1 day ago"""
     def test_download_model_failure(self, mock_popen):
         """Test model download failure."""
         mock_process = Mock()
-        mock_process.stdout.readline.side_effect = [
+        
+        readline_values = [
             "error: model not found\n",
             ""  # EOF
         ]
+        
+        def readline_side_effect():
+            for value in readline_values:
+                yield value
+        
+        readline_iter = readline_side_effect()
+        mock_process.stdout.readline.side_effect = lambda: next(readline_iter, "")
         mock_process.poll.side_effect = [None, 1]
         mock_process.wait.return_value = 1
         mock_popen.return_value = mock_process

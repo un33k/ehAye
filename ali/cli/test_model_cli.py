@@ -16,19 +16,19 @@ from .model_cli import (
 class TestSetupLogging:
     """Test logging setup functionality."""
     
-    @patch('ali.cli.model_cli.ehaye_logger')
+    @patch('ali.logging.logger.ehaye_logger')
     def test_setup_logging_debug(self, mock_logger):
         """Test logging setup with debug level."""
         setup_logging(verbose=False, debug=True)
         mock_logger.setup.assert_called_once_with(level="DEBUG", enable_rich=True)
     
-    @patch('ali.cli.model_cli.ehaye_logger')
+    @patch('ali.logging.logger.ehaye_logger')
     def test_setup_logging_verbose(self, mock_logger):
         """Test logging setup with verbose level."""
         setup_logging(verbose=True, debug=False)
         mock_logger.setup.assert_called_once_with(level="INFO", enable_rich=True)
     
-    @patch('ali.cli.model_cli.ehaye_logger')
+    @patch('ali.logging.logger.ehaye_logger')
     def test_setup_logging_quiet(self, mock_logger):
         """Test logging setup with quiet level."""
         setup_logging(verbose=False, debug=False)
@@ -38,7 +38,7 @@ class TestSetupLogging:
 class TestCommandPrefix:
     """Test command prefix functionality."""
     
-    @patch('ali.cli.model_cli.get_config')
+    @patch('ali.configuration.get_config')
     def test_get_command_prefix_success(self, mock_get_config):
         """Test getting command prefix from config."""
         mock_config = Mock()
@@ -49,7 +49,7 @@ class TestCommandPrefix:
         result = get_command_prefix()
         assert result == "ehaye models"
     
-    @patch('ali.cli.model_cli.get_config')
+    @patch('ali.configuration.get_config')
     def test_get_command_prefix_fallback(self, mock_get_config):
         """Test command prefix fallback when config fails."""
         mock_get_config.side_effect = Exception("Config error")
