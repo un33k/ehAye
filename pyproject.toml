@@ -125,14 +125,16 @@ warn_unused_ignores = true
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --strict-markers"
-testpaths = ["tests"]
+testpaths = ["tests", "ali"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+# Discover tests co-located with source code in ali/ directory
+collect_ignore = ["ali/**/__pycache__"]
 
 [tool.coverage.run]
 source = ["ali"]
-omit = ["*/tests/*"]
+omit = ["*/tests/*", "*/test_*.py", "*/*_test.py"]
 
 [tool.coverage.report]
 exclude_lines = [
