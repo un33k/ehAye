@@ -134,8 +134,8 @@ def common_setup(
 
 def handle_keyboard_interrupt():
     """Handle Ctrl+C gracefully."""
-    console.print("\n[yellow]Operation cancelled by user[/yellow]")
-    raise click.Abort()
+    import sys
+    sys.exit(130)  # Standard exit code for SIGINT (128 + 2)
 
 
 def confirm_action(message: str, default: bool = False) -> bool:
