@@ -1,4 +1,4 @@
-"""Main Ali CLI entry point with subcommands using Click with Typer integration."""
+"""Main Ali CLI entry point with subcommands using Click."""
 
 import sys
 import os
@@ -87,7 +87,7 @@ def cli(ctx, verbose, debug):
 # Add Click-based Ollama CLI
 cli.add_command(ollama_cli, name="olla")
 
-# Simple delegate commands for Typer-based CLIs
+# Simple delegate commands for Click-based CLIs
 @cli.command(name="mod", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 @click.pass_context
 def mod_delegate(ctx):

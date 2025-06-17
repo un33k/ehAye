@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-import typer
+import click
 from rich.console import Console
 
 # Import actual benchmarking modules
@@ -20,22 +20,24 @@ from ..logging.logger import get_logger
 from ..models.registry import get_installed_models, search_models
 from .base import BaseCLI, common_setup, handle_keyboard_interrupt, show_error, show_info, show_success
 
-app = typer.Typer(name="benchmark", help="Performance benchmarking for LLM models")
+@click.group(name="benchmark")
+def app():
+    """Performance benchmarking for LLM models"""
+    pass
 console = Console()
 logger = get_logger("cli.benchmark")
 
 
 @app.command()
-def single(
-    ctx: typer.Context,
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model to benchmark"),
-    tokens: int = typer.Option(100, "--tokens", "-t", help="Tokens to generate per run"),
-    runs: int = typer.Option(3, "--runs", "-r", help="Number of benchmark runs"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Save results to JSON file"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", "-c", help="Config file"),
-):
+@click.option("--model", "-m", help="Model to benchmark")
+@click.option("--tokens", "-t", default=100, help="Tokens to generate per run")
+@click.option("--runs", "-r", default=3, help="Number of benchmark runs")
+@click.option("--output", "-o", type=click.Path(), help="Save results to JSON file")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose logging")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", "-c", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def single(ctx, model, tokens, runs, output, verbose, quiet, config):
     """Benchmark a single model."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config)
@@ -73,17 +75,16 @@ def single(
 
 
 @app.command()
-def compare(
-    ctx: typer.Context,
-    models: Optional[List[str]] = typer.Option(None, "--models", "-m", help="Models to compare"),
-    tokens: int = typer.Option(100, "--tokens", "-t", help="Tokens to generate per run"),
-    runs: int = typer.Option(2, "--runs", "-r", help="Number of benchmark runs"),
-    all_models: bool = typer.Option(False, "--all", "-a", help="Compare all installed models"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Save results to JSON file"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", "-c", help="Config file"),
-):
+@click.option("--models", "-m", multiple=True, help="Models to compare")
+@click.option("--tokens", "-t", default=100, help="Tokens to generate per run")
+@click.option("--runs", "-r", default=2, help="Number of benchmark runs")
+@click.option("--all", "-a", is_flag=True, help="Compare all installed models")
+@click.option("--output", "-o", type=click.Path(), help="Save results to JSON file")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose logging")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", "-c", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def compare(ctx, models, tokens, runs, all, output, verbose, quiet, config):
     """Compare multiple models."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config)
@@ -94,7 +95,7 @@ def compare(
             return
         
         # Get models to compare
-        if all_models:
+        if all:
             installed_models = get_installed_models()
             model_ids = [m.id for m in installed_models]
         elif models:
@@ -133,13 +134,12 @@ def compare(
 
 
 @app.command()
-def list_models(
-    ctx: typer.Context,
-    search: Optional[str] = typer.Option(None, "--search", "-s", help="Search models"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", "-c", help="Config file"),
-):
+@click.option("--search", "-s", help="Search models")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose logging")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", "-c", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def list_models(ctx, search, verbose, quiet, config):
     """List available models for benchmarking."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
@@ -173,12 +173,11 @@ def list_models(
 
 
 @app.command()
-def validate(
-    ctx: typer.Context,
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", "-c", help="Config file"),
-):
+@click.option("--verbose", "-v", is_flag=True, help="Verbose logging")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", "-c", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def validate(ctx, verbose, quiet, config):
     """Validate benchmark environment."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config)
@@ -214,7 +213,7 @@ def select_model_interactive() -> Optional[str]:
         console.print(f"  {i:2d}. {model.display_name}")
     
     try:
-        choice = typer.prompt("\nSelect model number", type=int)
+        choice = click.prompt("\nSelect model number", type=int)
         
         if 1 <= choice <= len(models):
             selected = models[choice - 1]
@@ -224,7 +223,7 @@ def select_model_interactive() -> Optional[str]:
             show_error("Invalid selection")
             return None
             
-    except (ValueError, typer.Abort):
+    except (ValueError, click.Abort):
         return None
 
 
@@ -245,7 +244,7 @@ def select_models_interactive() -> List[str]:
     console.print(f"  {len(models)+1:2d}. All models")
     
     try:
-        choices_str = typer.prompt(
+        choices_str = click.prompt(
             "\nSelect model numbers (comma-separated, ranges like 1-3, or 'all')",
             type=str
         )
@@ -277,7 +276,7 @@ def select_models_interactive() -> List[str]:
             show_error("No valid selections")
             return []
             
-    except (ValueError, typer.Abort):
+    except (ValueError, click.Abort):
         return []
 
 

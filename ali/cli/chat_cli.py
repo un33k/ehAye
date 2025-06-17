@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import typer
+import click
 from rich.console import Console
 
 from ..logging.logger import get_logger
@@ -62,27 +62,25 @@ def get_chat_command_prefix():
     except Exception:
         return "ali chat"
 
-app = typer.Typer(
-    name="chat", 
-    help="Interactive chat with LLM models",
-    context_settings={"help_option_names": ["-h", "--help"]}
-)
+@click.group(name="chat")
+def app():
+    """Interactive chat with LLM models"""
+    pass
 console = Console()
 logger = get_logger("cli.chat")
 
 
 @app.command()
-def interactive(
-    ctx: typer.Context,
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model to use for chat"),
-    temperature: float = typer.Option(0.7, "--temp", "-t", help="Generation temperature"),
-    max_tokens: int = typer.Option(512, "--tokens", help="Maximum tokens per response"),
-    system_prompt: Optional[str] = typer.Option(None, "--system", "-s", help="System prompt"),
-    no_stream: bool = typer.Option(False, "--no-stream", help="Disable streaming output"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", "-c", help="Config file"),
-):
+@click.option("--model", "-m", help="Model to use for chat")
+@click.option("--temp", "-t", default=0.7, help="Generation temperature")
+@click.option("--tokens", default=512, help="Maximum tokens per response")
+@click.option("--system", "-s", help="System prompt")
+@click.option("--no-stream", is_flag=True, help="Disable streaming output")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose logging")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", "-c", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def interactive(ctx, model, temp, tokens, system, no_stream, verbose, quiet, config):
     """Start an interactive chat session."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config)
@@ -95,12 +93,12 @@ def interactive(
         
         # Create generation config
         gen_config = GenerationConfig(
-            max_tokens=max_tokens,
-            temperature=temperature
+            max_tokens=tokens,
+            temperature=temp
         )
         
         # Create chat session
-        session_id = create_chat_session(model, gen_config, system_prompt)
+        session_id = create_chat_session(model, gen_config, system)
         
         # Start chat loop
         start_chat_loop(session_id, streaming=not no_stream)
@@ -112,18 +110,17 @@ def interactive(
 
 
 @app.command()
-def single(
-    ctx: typer.Context,
-    prompt: str = typer.Argument(..., help="Single prompt to send"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model to use"),
-    temperature: float = typer.Option(0.7, "--temp", "-t", help="Generation temperature"),
-    max_tokens: int = typer.Option(512, "--tokens", help="Maximum tokens per response"),
-    system_prompt: Optional[str] = typer.Option(None, "--system", "-s", help="System prompt"),
-    no_stream: bool = typer.Option(False, "--no-stream", help="Disable streaming output"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", "-c", help="Config file"),
-):
+@click.argument("prompt")
+@click.option("--model", "-m", help="Model to use")
+@click.option("--temp", "-t", default=0.7, help="Generation temperature")
+@click.option("--tokens", default=512, help="Maximum tokens per response")
+@click.option("--system", "-s", help="System prompt")
+@click.option("--no-stream", is_flag=True, help="Disable streaming output")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose logging")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", "-c", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def single(ctx, prompt, model, temp, tokens, system, no_stream, verbose, quiet, config):
     """Send a single prompt and get response."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config)
@@ -136,12 +133,12 @@ def single(
         
         # Create generation config
         gen_config = GenerationConfig(
-            max_tokens=max_tokens,
-            temperature=temperature
+            max_tokens=tokens,
+            temperature=temp
         )
         
         # Create chat session
-        session = ChatSession(model, gen_config, system_prompt)
+        session = ChatSession(model, gen_config, system)
         
         # Send single message
         console.print(f"[blue]🧑 User:[/blue] {prompt}")
@@ -160,13 +157,12 @@ def single(
 
 
 @app.command()
-def models(
-    ctx: typer.Context,
-    search: Optional[str] = typer.Option(None, "--search", "-s", help="Search models"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", "-c", help="Config file"),
-):
+@click.option("--search", "-s", help="Search models")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose logging")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", "-c", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def models(ctx, search, verbose, quiet, config):
     """List available models for chat."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
@@ -212,7 +208,7 @@ def select_model_interactive() -> Optional[str]:
         console.print(f"  {i:2d}. {model.display_name}")
     
     try:
-        choice = typer.prompt("\nSelect model number", type=int)
+        choice = click.prompt("\nSelect model number", type=int)
         
         if 1 <= choice <= len(models):
             selected = models[choice - 1]
@@ -222,7 +218,7 @@ def select_model_interactive() -> Optional[str]:
             show_error("Invalid selection")
             return None
             
-    except (ValueError, typer.Abort):
+    except (ValueError, click.Abort):
         return None
 
 

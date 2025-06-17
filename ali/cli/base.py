@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import typer
+import click
 from rich.console import Console
 
 from ..configuration import get_config, load_config
@@ -20,11 +20,6 @@ class BaseCLI:
     
     def __init__(self, app_name: str):
         self.app_name = app_name
-        self.app = typer.Typer(
-            name=app_name,
-            help=f"ehAye {app_name.title()} Interface",
-            add_completion=False
-        )
         self.config = None
     
     def setup_logging(self, verbose: bool = False, quiet: bool = False) -> None:
@@ -52,7 +47,7 @@ class BaseCLI:
             console.print(f"[red]Configuration error: {e}[/red]")
             if "config" in str(e).lower():
                 console.print("[yellow]Tip: Create config/settings.toml or use default configuration[/yellow]")
-            raise typer.Exit(1)
+            raise click.ClickException(str(e))
     
     def validate_environment(self, skip_venv: bool = False) -> None:
         """Validate runtime environment."""
@@ -79,7 +74,7 @@ class BaseCLI:
             elif "Python" in str(e):
                 console.print("[yellow]Ensure Python 3.10+ is installed[/yellow]")
             
-            raise typer.Exit(1)
+            raise click.ClickException(str(e))
     
     def handle_error(self, error: Exception) -> None:
         """Handle and display errors appropriately."""
@@ -91,22 +86,22 @@ class BaseCLI:
             console.print(f"[red]Unexpected error: {error}[/red]")
             logger.error(f"Unexpected error in {self.app_name}: {error}", exc_info=True)
         
-        raise typer.Exit(1)
+        raise click.ClickException(str(error))
     
     def add_common_options(self, callback):
         """Decorator to add common CLI options."""
-        callback = typer.Option(
-            False, "--verbose", "-v", 
+        callback = click.option(
+            "--verbose", "-v", is_flag=True,
             help="Enable verbose logging"
         )(callback)
         
-        callback = typer.Option(
-            False, "--quiet", "-q", 
+        callback = click.option(
+            "--quiet", "-q", is_flag=True,
             help="Suppress output except errors"
         )(callback)
         
-        callback = typer.Option(
-            None, "--config", "-c", 
+        callback = click.option(
+            "--config", "-c", type=click.Path(exists=True),
             help="Custom configuration file path"
         )(callback)
         
@@ -114,7 +109,7 @@ class BaseCLI:
 
 
 def common_setup(
-    ctx: typer.Context,
+    ctx: click.Context = None,
     verbose: bool = False,
     quiet: bool = False,
     config: Optional[Path] = None,
@@ -122,7 +117,7 @@ def common_setup(
 ) -> BaseCLI:
     """Common setup for all CLI commands."""
     # Get CLI instance from context
-    cli = ctx.find_root().info_name
+    cli = "ehaye" if ctx is None else getattr(ctx, 'info_name', 'ehaye')
     base_cli = BaseCLI(cli)
     
     # Setup logging first
@@ -140,12 +135,12 @@ def common_setup(
 def handle_keyboard_interrupt():
     """Handle Ctrl+C gracefully."""
     console.print("\n[yellow]Operation cancelled by user[/yellow]")
-    raise typer.Exit(0)
+    raise click.Abort()
 
 
 def confirm_action(message: str, default: bool = False) -> bool:
     """Ask for user confirmation."""
-    return typer.confirm(message, default=default)
+    return click.confirm(message, default=default)
 
 
 def show_success(message: str) -> None:

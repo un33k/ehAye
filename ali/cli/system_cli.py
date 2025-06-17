@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import typer
+import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -28,18 +28,20 @@ from ..configuration import get_config
 from ..logging.logger import get_logger
 from .base import BaseCLI, common_setup, handle_keyboard_interrupt, show_error, show_info, show_success
 
-app = typer.Typer(name="system", help="System management and diagnostics")
+@click.group(name="system")
+def app():
+    """System management and diagnostics"""
+    pass
 console = Console()
 logger = get_logger("cli.system")
 
 
 @app.command()
-def info(
-    ctx: typer.Context,
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
-):
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def info(ctx, verbose, quiet, config):
     """Show system information."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
@@ -116,12 +118,11 @@ def info(
 
 
 @app.command()
-def validate(
-    ctx: typer.Context,
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
-):
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def validate(ctx, verbose, quiet, config):
     """Validate system environment for ehAye."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config)
@@ -171,7 +172,7 @@ def validate(
             issues.append("System resources")
         
         # Package availability
-        required_packages = ["mlx_lm", "psutil", "rich", "typer"]
+        required_packages = ["mlx_lm", "psutil", "rich", "click"]
         missing_packages = []
         for pkg in required_packages:
             try:
@@ -209,24 +210,23 @@ def validate(
 
 
 @app.command()
-def config(
-    ctx: typer.Context,
-    show_paths: bool = typer.Option(False, "--paths", help="Show configured paths"),
-    show_env: bool = typer.Option(False, "--env", help="Show environment variables"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config_file: Optional[Path] = typer.Option(None, "--config", help="Config file"),
-):
+@click.option("--paths", is_flag=True, help="Show configured paths")
+@click.option("--env", is_flag=True, help="Show environment variables")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def config(ctx, paths, env, verbose, quiet, config):
     """Show configuration information."""
     try:
-        base_cli = common_setup(ctx, verbose, quiet, config_file, skip_venv=True)
+        base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
         
         config = get_config()
         
         console.print("⚙️ Configuration")
         console.print("=" * 50)
         
-        if show_paths or not (show_env):
+        if paths or not (env):
             # Show paths
             console.print("\n📁 Configured Paths:")
             table = Table(show_header=False)
@@ -240,7 +240,7 @@ def config(
             
             console.print(table)
         
-        if show_env or not (show_paths):
+        if env or not (paths):
             # Show environment variables
             console.print("\n🌍 Environment Variables:")
             table = Table(show_header=False)
@@ -271,13 +271,12 @@ def config(
 
 
 @app.command()
-def setup(
-    ctx: typer.Context,
-    force: bool = typer.Option(False, "--force", "-f", help="Force setup even if directories exist"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
-):
+@click.option("--force", "-f", is_flag=True, help="Force setup even if directories exist")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def setup(ctx, force, verbose, quiet, config):
     """Set up system directories and environment."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config)
@@ -310,15 +309,14 @@ def setup(
 
 
 @app.command()
-def cleanup(
-    ctx: typer.Context,
-    logs: bool = typer.Option(False, "--logs", help="Clean up log files"),
-    cache: bool = typer.Option(False, "--cache", help="Clean up cache files"),
-    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
-    config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
-):
+@click.option("--logs", is_flag=True, help="Clean up log files")
+@click.option("--cache", is_flag=True, help="Clean up cache files")
+@click.option("--force", "-f", is_flag=True, help="Skip confirmation")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode")
+@click.option("--config", type=click.Path(exists=True), help="Config file")
+@click.pass_context
+def cleanup(ctx, logs, cache, force, verbose, quiet, config):
     """Clean up system files and caches."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config, skip_venv=True)
@@ -338,7 +336,7 @@ def cleanup(
             if cache:
                 actions.append("cache files")
             
-            if not typer.confirm(f"Clean up {' and '.join(actions)}?"):
+            if not click.confirm(f"Clean up {' and '.join(actions)}?"):
                 return
         
         # Clean logs

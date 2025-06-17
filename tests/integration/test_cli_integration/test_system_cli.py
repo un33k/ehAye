@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from typer.testing import CliRunner
+from click.testing import CliRunner
 
 from ali.cli.system_cli import app
 

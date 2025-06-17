@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Optional
-import typer
+import click
 from rich.console import Console
 
 console = Console()
@@ -550,7 +550,7 @@ def select_model_for_download(backend_obj) -> Optional[str]:
     
     while True:
         try:
-            choice_str = typer.prompt("\nSelect model number (or 'q' to quit)")
+            choice_str = click.prompt("\nSelect model number (or 'q' to quit)")
             
             # Handle quit conditions
             if choice_str.lower().strip() in ['q', 'quit']:
@@ -569,7 +569,7 @@ def select_model_for_download(backend_obj) -> Optional[str]:
                 show_error("Invalid selection")
                 continue
                 
-        except typer.Abort:
+        except click.Abort:
             console.print("👋 Cancelled")
             return None
 
@@ -592,7 +592,7 @@ def select_installed_model(backend_obj) -> Optional[str]:
     
     while True:
         try:
-            choice_str = typer.prompt("\nSelect model number (or 'q' to quit)")
+            choice_str = click.prompt("\nSelect model number (or 'q' to quit)")
             
             # Handle quit conditions
             if choice_str.lower().strip() in ['q', 'quit']:
@@ -611,7 +611,7 @@ def select_installed_model(backend_obj) -> Optional[str]:
                 show_error("Invalid selection")
                 continue
                 
-        except typer.Abort:
+        except click.Abort:
             console.print("👋 Cancelled")
             return None
 
