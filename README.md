@@ -27,7 +27,7 @@ The bootstrap script automatically installs pyenv, Python, and all dependencies:
 
 ```bash
 git clone <repository-url>
-cd ehAye-Local
+cd ehAye
 ./bootstrap.sh
 source .venv/bin/activate
 ```
@@ -38,7 +38,7 @@ For manual control over the setup process:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd ehAye-Local
+cd ehAye
 
 # Install pyenv and pyenv-virtualenv (if not already installed)
 brew install pyenv pyenv-virtualenv
@@ -48,8 +48,8 @@ pyenv install 3.11.9
 pyenv local 3.11.9
 
 # Create virtual environment with pyenv
-pyenv virtualenv 3.11.9 ehaye-local-$(basename "$PWD")
-ln -sf "$(pyenv root)/versions/ehaye-local-$(basename "$PWD")" .venv
+pyenv virtualenv 3.11.9 ehaye-$(basename "$PWD")
+ln -sf "$(pyenv root)/versions/ehaye-$(basename "$PWD")" .venv
 
 # Activate and install
 source .venv/bin/activate
@@ -61,7 +61,7 @@ If you already have Python 3.10+ installed:
 
 ```bash
 git clone <repository-url>
-cd ehAye-Local
+cd ehAye
 pip install -e .
 ```
 
@@ -285,7 +285,7 @@ This guide covers:
 
 ### Project Structure
 ```
-ehAye-Local/
+ehAye/
 ├── ali/                    # Main source code
 ├── scripts/                # Entry point scripts
 ├── config/                 # Configuration files
@@ -440,12 +440,12 @@ mypy ali/                   # Type checking
 Using pyenv allows you to manage different Python versions for different projects:
 
 ```bash
-# Set up ehAye-Local with Python 3.11.9
-cd ehAye-Local
+# Set up ehAye with Python 3.11.9
+cd ehAye
 pyenv install 3.11.9
 pyenv local 3.11.9
-pyenv virtualenv 3.11.9 ehaye-local-dev
-ln -sf "$(pyenv root)/versions/ehaye-local-dev" .venv
+pyenv virtualenv 3.11.9 ehaye-dev
+ln -sf "$(pyenv root)/versions/ehaye-dev" .venv
 source .venv/bin/activate
 pip install -e .
 
@@ -460,7 +460,7 @@ pyenv virtualenv 3.12.0 other-project-dev
 #### Daily Development
 ```bash
 # Activate environment (pyenv can auto-activate with proper shell config)
-cd ehAye-Local
+cd ehAye
 source .venv/bin/activate
 
 # Test changes immediately (no reinstall needed)
@@ -501,7 +501,7 @@ pyenv local 3.11.9
 pyenv virtualenvs
 
 # Remove a virtual environment
-pyenv virtualenv-delete ehaye-local-old
+pyenv virtualenv-delete .venv
 ```
 
 ### Current Test Status

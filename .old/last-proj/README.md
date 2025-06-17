@@ -244,7 +244,7 @@ This guide covers:
 
 ### Project Structure
 ```
-ehAye-Local/
+ehAye/
 ├── ali/                    # Main source code
 ├── scripts/                # Entry point scripts
 ├── config/                 # Configuration files

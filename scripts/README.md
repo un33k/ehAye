@@ -1,4 +1,4 @@
-# ehAye-Local Scripts
+# ehAye Scripts
 
 This directory contains entry point scripts that provide direct access to CLI functionality.
 

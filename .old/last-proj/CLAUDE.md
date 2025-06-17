@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This document provides guidance to Claude Code (claude.ai/code) for working with the ehAye-Local repository.
+This document provides guidance to Claude Code (claude.ai/code) for working with the ehAye repository.
 
 ## Project Overview
 
-**ehAye-Local** is a professional-grade local LLM interface optimized for Apple Silicon Macs.
+**ehAye** is a professional-grade local LLM interface optimized for Apple Silicon Macs.
 
 - **Purpose**: Unified interface for running LLMs locally with dual backend support
 - **Language**: Python 3.10+
@@ -16,7 +16,7 @@ This document provides guidance to Claude Code (claude.ai/code) for working with
 
 ## Description
 
-ehAye-Local provides a modular, extensible platform for local LLM deployment and interaction on macOS. The project focuses on:
+ehAye provides a modular, extensible platform for local LLM deployment and interaction on macOS. The project focuses on:
 
 ### Core Features
 - **Dual Backend Architecture**: Seamlessly switch between Ollama and MLX backends

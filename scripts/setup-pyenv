@@ -4,14 +4,14 @@ set -euo pipefail
 # ============================================================================
 # ehAye pyenv Virtual Environment Setup Script
 # 
-# Creates an isolated pyenv virtual environment for ehAye-Local
+# Creates an isolated pyenv virtual environment for ehAye
 # Useful for manual setup or when working with multiple projects
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 PYTHON_VERSION="${PYTHON_VERSION:-3.11.9}"
-VENV_NAME="${VENV_NAME:-ehaye-local-$(basename "$PROJECT_DIR")}"
+VENV_NAME="${VENV_NAME:-ehAye-$(basename "$PROJECT_DIR")}"
 
 # Colors for output
 RED='\033[0;31m'
