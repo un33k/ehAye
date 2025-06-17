@@ -28,7 +28,30 @@ class ChatSession:
         self.conversation = type('obj', (object,), {'system_prompt': system_prompt, 'messages': []})()
     
     def send_message(self, message, streaming=True):
-        return "This is a placeholder response. Chat functionality not yet implemented."
+        """Send message to Ollama and get response."""
+        try:
+            import subprocess
+            from rich.status import Status
+            
+            # Show loading status
+            with Status("🤖 Generating response...", console=console):
+                result = subprocess.run(
+                    ['ollama', 'run', self.model_id, message],
+                    capture_output=True, text=True, timeout=60
+                )
+            
+            if result.returncode == 0:
+                return result.stdout.strip()
+            else:
+                error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+                if "pull model" in error_msg or "model not found" in error_msg:
+                    return f"Model '{self.model_id}' not found. Try: ollama pull {self.model_id}"
+                return f"Error: {error_msg}"
+                
+        except subprocess.TimeoutExpired:
+            return "⏱️ Request timed out. The model might be loading or the prompt is too complex."
+        except Exception as e:
+            return f"Error: {e}"
     
     def clear_conversation(self):
         self.conversation.messages = []
@@ -37,19 +60,46 @@ class ChatSession:
         pass
 
 def create_chat_session(model_id, config, system_prompt=None):
-    return "session_id_placeholder"
+    return ChatSession(model_id, config, system_prompt)
 
 def get_chat_session(session_id):
-    return ChatSession("placeholder_model", GenerationConfig())
+    # In this simplified version, session_id is actually the ChatSession object
+    return session_id
 
 def stream_to_console(response_stream, prefix):
     console.print(f"{prefix}{response_stream}")
 
 def get_installed_models():
-    return [type('obj', (object,), {'id': 'placeholder_model', 'display_name': 'Placeholder Model', 'category': 'test'})()]
+    """Get list of installed Ollama models."""
+    try:
+        import subprocess
+        result = subprocess.run(['ollama', 'list'], capture_output=True, text=True)
+        if result.returncode != 0:
+            return []
+        
+        models = []
+        lines = result.stdout.strip().split('\n')[1:]  # Skip header
+        for line in lines:
+            if line.strip():
+                parts = line.split()
+                if len(parts) >= 2:
+                    name = parts[0]
+                    model_id = name.split(':')[0] if ':' in name else name
+                    models.append(type('obj', (object,), {
+                        'id': name,
+                        'display_name': name,
+                        'category': 'ollama'
+                    })())
+        return models
+    except Exception:
+        return []
 
 def search_models(query=None):
-    return get_installed_models()
+    models = get_installed_models()
+    if not query:
+        return models
+    query_lower = query.lower()
+    return [m for m in models if query_lower in m.display_name.lower()]
 
 def get_chat_command_prefix():
     """Get the chat command prefix from config."""
@@ -62,10 +112,13 @@ def get_chat_command_prefix():
     except Exception:
         return "ali chat"
 
-@click.group(name="chat")
-def app():
+@click.group(name="chat", invoke_without_command=True)
+@click.pass_context
+def app(ctx):
     """Interactive chat with LLM models"""
-    pass
+    if ctx.invoked_subcommand is None:
+        # Default to interactive mode
+        ctx.invoke(interactive)
 console = Console()
 logger = get_logger("cli.chat")
 
@@ -98,10 +151,10 @@ def interactive(ctx, model, temp, tokens, system, no_stream, verbose, quiet, con
         )
         
         # Create chat session
-        session_id = create_chat_session(model, gen_config, system)
+        session = create_chat_session(model, gen_config, system)
         
         # Start chat loop
-        start_chat_loop(session_id, streaming=not no_stream)
+        start_chat_loop(session, streaming=not no_stream)
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt()
@@ -222,11 +275,8 @@ def select_model_interactive() -> Optional[str]:
         return None
 
 
-def start_chat_loop(session_id: str, streaming: bool = True) -> None:
+def start_chat_loop(session, streaming: bool = True) -> None:
     """Start the interactive chat loop."""
-    from ..chat.session import get_chat_session
-    
-    session = get_chat_session(session_id)
     if not session:
         show_error("Failed to create chat session")
         return

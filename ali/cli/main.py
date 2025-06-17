@@ -159,18 +159,10 @@ def chat_delegate(ctx):
         # Assume it's a prompt for single mode
         args.extend(['single'] + list(ctx.args))
     
-    result = subprocess.run(args, capture_output=True, text=True)
+    # Debug: print the command being run
+    # console.print(f"[dim]Running: {' '.join(args)}[/dim]")
     
-    # Clean up error messages
-    if result.returncode != 0 and result.stderr:
-        error_output = result.stderr.replace('python -m ali.cli.chat_cli', 'ali chat')
-        error_lines = error_output.split('\n')
-        clean_lines = [line for line in error_lines if not line.strip().startswith('Traceback') and not line.strip().startswith('File ')]
-        if clean_lines:
-            print('\n'.join(clean_lines), file=sys.stderr)
-    elif result.stdout:
-        console.print(result.stdout)
-    
+    result = subprocess.run(args)
     ctx.exit(result.returncode)
 
 @cli.command(name="perf", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
