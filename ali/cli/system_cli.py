@@ -107,7 +107,7 @@ def info(ctx, verbose, quiet, config):
             color = "green" if thermal_state == "nominal" else "yellow" if thermal_state == "fair" else "red"
             console.print(Panel(
                 f"State: {thermal_state.title()}",
-                title="🌡️  Thermal",
+                title="🌡️  TMP",
                 border_style=color
             ))
         
