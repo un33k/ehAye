@@ -261,7 +261,18 @@ def select_model_interactive() -> Optional[str]:
         console.print(f"  {i:2d}. {model.display_name}")
     
     try:
-        choice = click.prompt("\nSelect model number", type=int)
+        choice_str = click.prompt("\nSelect model number (or 'q' to quit)", type=str)
+        
+        # Handle quit commands
+        if choice_str.lower().strip() in ['q', 'quit', 'exit']:
+            console.print("👋 Cancelled")
+            return None
+            
+        try:
+            choice = int(choice_str)
+        except ValueError:
+            show_error("Please enter a valid number or 'q' to quit")
+            return None
         
         if 1 <= choice <= len(models):
             selected = models[choice - 1]
@@ -271,7 +282,8 @@ def select_model_interactive() -> Optional[str]:
             show_error("Invalid selection")
             return None
             
-    except (ValueError, click.Abort):
+    except click.Abort:
+        console.print("👋 Cancelled")
         return None
 
 
