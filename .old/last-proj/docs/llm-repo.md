@@ -48,7 +48,7 @@ A comprehensive guide to open-source LLM repositories that offer free downloads 
 ### 3. **Ollama Library**
 - **URL**: https://ollama.com/library
 - **Type**: Curated model collection for local execution
-- **Integration**: Already integrated with ehAye Local
+- **Integration**: Already integrated with ehAye
 
 **Features:**
 - ✅ **No rate limits** for model downloads
@@ -123,7 +123,7 @@ Tools that provide unlimited access to multiple model sources:
 
 ---
 
-## 💡 Integration Recommendations for ehAye Local
+## 💡 Integration Recommendations for ehAye
 
 ### Priority 1: **ModelScope Integration**
 **Why ModelScope?**
@@ -217,4 +217,4 @@ Found a new free LLM repository? Please contribute by:
 
 ---
 
-**Note**: This research was conducted to help ehAye Local users find reliable, unrestricted access to open-source LLMs as alternatives to rate-limited platforms like Hugging Face.
+**Note**: This research was conducted to help ehAye users find reliable, unrestricted access to open-source LLMs as alternatives to rate-limited platforms like Hugging Face.

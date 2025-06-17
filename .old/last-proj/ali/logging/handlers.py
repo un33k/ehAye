@@ -1,4 +1,4 @@
-"""Custom logging handlers for ehAye Local."""
+"""Custom logging handlers for ehAye."""
 
 import logging
 import logging.handlers

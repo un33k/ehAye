@@ -1,4 +1,4 @@
-"""Enhanced logging system for ehAye Local."""
+"""Enhanced logging system for ehAye."""
 
 from .logger import EhAyeLogger, get_logger
 from .handlers import RotatingFileHandler, StreamHandler

@@ -1,4 +1,4 @@
-"""Configuration management for ehAye Local."""
+"""Configuration management for ehAye."""
 
 import os
 from pathlib import Path

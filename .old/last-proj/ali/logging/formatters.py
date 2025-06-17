@@ -1,4 +1,4 @@
-"""Custom logging formatters for ehAye Local."""
+"""Custom logging formatters for ehAye."""
 
 import json
 import logging

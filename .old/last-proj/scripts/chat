@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ehAye Local Chat Interface Entry Point
+ehAye Chat Interface Entry Point
 Provides interactive chat with LLM models
 """
 

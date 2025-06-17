@@ -1,4 +1,4 @@
-"""Utility modules for ehAye Local."""
+"""Utility modules for ehAye."""
 
 from .console import ConsoleManager, create_progress, create_table
 from .system_info import SystemInfo, get_system_info, check_apple_silicon

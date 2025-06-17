@@ -57,7 +57,7 @@ def check_virtualenv():
         console.print("[yellow]Run: deactivate >/dev/null 2>&1 || source .venv/bin/activate[/yellow]")
         sys.exit(1)
 
-@click.group(name="ali", help="Ali - Artificial Line Interface for ehAye Local", invoke_without_command=True)
+@click.group(name="ali", help="Ali - Artificial Line Interface for ehAye", invoke_without_command=True)
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
 @click.option('--debug', '-d', is_flag=True, help='Enable debug output')
 @click.pass_context

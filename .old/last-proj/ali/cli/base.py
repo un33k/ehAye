@@ -23,7 +23,7 @@ class BaseCLI:
         self.app_name = app_name
         self.app = typer.Typer(
             name=app_name,
-            help=f"ehAye Local {app_name.title()} Interface",
+            help=f"ehAye {app_name.title()} Interface",
             add_completion=False
         )
         self.config = None

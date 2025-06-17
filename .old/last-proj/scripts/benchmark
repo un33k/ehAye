@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ehAye Local Benchmark Interface Entry Point
+ehAye Benchmark Interface Entry Point
 Provides performance benchmarking for LLM models
 """
 

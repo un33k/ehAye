@@ -58,7 +58,7 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-# ehAye Local specific
+# ehAye specific
 .cache/
 .mlx-cache/
 logs/

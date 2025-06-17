@@ -109,7 +109,7 @@ def validate(
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Quiet mode"),
     config: Optional[Path] = typer.Option(None, "--config", help="Config file"),
 ):
-    """Validate system environment for ehAye Local."""
+    """Validate system environment for ehAye."""
     try:
         base_cli = common_setup(ctx, verbose, quiet, config)
         
@@ -169,7 +169,7 @@ def validate(
                 console.print(f"  • {issue}")
         else:
             console.print("\n✅ All validation checks passed!")
-            show_success("System is ready for ehAye Local")
+            show_success("System is ready for ehAye")
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt()

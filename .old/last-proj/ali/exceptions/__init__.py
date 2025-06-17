@@ -1,4 +1,4 @@
-"""Enhanced exception handling for ehAye Local."""
+"""Enhanced exception handling for ehAye."""
 
 from .base import EhAyeError, EhAyeWarning
 from .backend_errors import (

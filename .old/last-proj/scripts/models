@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ehAye Local Model Management Entry Point
+ehAye Model Management Entry Point
 Provides model download, installation, and management
 """
 

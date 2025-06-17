@@ -1,4 +1,4 @@
-"""Enhanced logging configuration for ehAye Local."""
+"""Enhanced logging configuration for ehAye."""
 
 import logging
 import sys

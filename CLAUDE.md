@@ -78,23 +78,86 @@ ali olla -- <command>    # Passthrough to Ollama CLI
 ali mlx <command>        # MLX-specific operations (planned)
 ```
 
-## Project Structure
+## Project Structure (NEW MODULAR ARCHITECTURE)
 - `ali/` - Main package
-  - `backends/` - Ollama & MLX backend implementations
-  - `cli/` - Command-line interfaces (migrating from Typer to Click)
-  - `core/` - Configuration, logging, exceptions
-  - `llm/` - Chat and text generation logic
-  - `models/` - Model management and registry
-  - `benchmarks/` - Performance benchmarking tools
-  - `system/` - System monitoring utilities
+  - `backends/` - Backend implementations with enhanced modularity
+    - `ollama/` - Ollama backend (client.py, service.py, models.py)
+    - `mlx/` - MLX backend (engine.py, models.py, optimizer.py)
+    - `base.py` - Backend interface definitions
+    - `manager.py` - Backend management and switching
+    - `utils.py` - Backend utilities and detection
+  - `cli/` - Command-line interfaces (Click-based architecture)
+    - `commands/` - Individual command implementations
+    - `formatters/` - Rich output formatting (colors, tables, progress)
+    - `main.py` - Main CLI entry point
+  - `configuration/` - Enhanced configuration management
+    - `manager.py` - Configuration loading and validation
+    - `loader.py` - Configuration file handling
+    - `paths.py` - Path management utilities
+    - `environment.py` - Environment validation and setup
+  - `logging/` - Advanced logging system
+    - `logger.py` - Enhanced logger with rich output
+    - `handlers.py` - Custom logging handlers
+    - `formatters.py` - Multiple logging formatters (JSON, colored, etc.)
+  - `exceptions/` - Categorized exception handling
+    - `base.py` - Base exception classes
+    - `backend_errors.py` - Backend-specific exceptions
+    - `model_errors.py` - Model management exceptions
+    - `cli_errors.py` - CLI-specific exceptions
+  - `utilities/` - Shared utility modules
+    - `console.py` - Rich console management
+    - `system_info.py` - System information gathering
+    - `validators.py` - Input validation utilities
+    - `file_operations.py` - Safe file operations
+    - `decorators.py` - Common decorators (retry, cache, etc.)
+    - `async_helpers.py` - Async utilities
+  - `chat/` - Enhanced chat system
+    - `interface.py` - Chat interface management
+    - `session.py` - Chat session handling
+    - `history.py` - Conversation history
+    - `streaming.py` - Streaming response handling
+  - `generation/` - Text generation engine
+    - `engine.py` - Generation orchestration
+    - `parameters.py` - Generation parameter management
+    - `processors.py` - Response processing
+  - `models/` - Model management system
+    - `registry.py` - Model registry and metadata
+    - `downloader.py` - Model download handling
+    - `installer.py` - Model installation logic
+    - `categorizer.py` - Model categorization
+    - `validator.py` - Model validation
+  - `benchmarking/` - Performance analysis
+    - `runner.py` - Benchmark execution
+    - `metrics.py` - Performance metrics
+    - `reporter.py` - Result reporting
+    - `analyzers.py` - Performance analysis
+    - `comparisons.py` - Backend comparisons
 - `config/` - TOML configuration files
-- `tests/` - Test suite (unit and integration)
-- `scripts/` - Entry point scripts
-- `web/` - Future web interface (placeholder)
+  - `app.toml` - Application settings
+  - `backends.toml` - Backend configurations
+  - `environment.toml` - Environment settings
+  - `models.toml` - Model registry
+- `scripts/` - Organized automation scripts
+  - `setup/` - Installation and setup scripts
+  - `development/` - Development workflow scripts
+  - `deployment/` - Deployment automation
+- `tests/` - Comprehensive test suite
+  - `unit/` - Unit tests organized by module
+  - `integration/` - Integration and workflow tests
+  - `fixtures/` - Test data and fixtures
+- `docs/` - Documentation system
+  - `api/` - API reference documentation
+  - `examples/` - Usage examples
+- `web/` - Future web interface
+  - `api/` - REST API server
+  - `frontend/` - Web frontend
+  - `static/` - Static assets
 
 ## Important Files
 - `pyproject.toml` - Project config & dependencies
-- `config/settings.toml` - Runtime settings
+- `bootstrap.sh` - Complete setup automation
+- `config/app.toml` - Application settings
+- `config/backends.toml` - Backend configurations
 - `config/models.toml` - Model registry
 
 ## Development Guidelines
@@ -112,7 +175,24 @@ ali mlx <command>        # MLX-specific operations (planned)
 - **Apple Silicon Optimization**: Leverage MLX for best performance
 - **Professional Quality**: Production-ready code with tests
 
+### New Architecture Benefits
+- **Enhanced Modularity**: Clear separation of concerns across specialized modules
+- **Better Error Handling**: Categorized exceptions with rich context and suggestions
+- **Advanced Logging**: Multiple formatters, handlers, and performance monitoring
+- **Rich Utilities**: Console management, validators, decorators, async helpers
+- **Improved Testing**: Organized test structure with comprehensive fixtures
+- **Professional Organization**: Industry-standard patterns and practices
+
 ### Current Status
-- Migration from Typer to Click in progress
-- API server and web interface planned
-- Focus on stability and performance for v0.1.0 release
+- ✅ New modular architecture implemented
+- ✅ Enhanced backend system with Ollama and MLX specialization
+- ✅ Advanced configuration and logging systems
+- ⏳ CLI migration to new structure in progress
+- 🔄 Integration and testing phase
+- 🎯 Focus on stability and performance for v0.1.0 release
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

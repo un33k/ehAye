@@ -1,4 +1,4 @@
-"""Environment validation and setup for ehAye Local."""
+"""Environment validation and setup for ehAye."""
 
 import os
 import subprocess

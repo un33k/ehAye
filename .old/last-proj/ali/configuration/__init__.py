@@ -1,4 +1,4 @@
-"""Configuration management for ehAye Local."""
+"""Configuration management for ehAye."""
 
 from .manager import ConfigManager, get_config, load_config
 from .loader import ConfigLoader

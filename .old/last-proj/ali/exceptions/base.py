@@ -1,10 +1,10 @@
-"""Base exception classes for ehAye Local."""
+"""Base exception classes for ehAye."""
 
 from typing import Any, Dict, Optional
 
 
 class EhAyeError(Exception):
-    """Base exception for all ehAye Local errors."""
+    """Base exception for all ehAye errors."""
     
     def __init__(
         self, 
@@ -55,7 +55,7 @@ class EhAyeError(Exception):
 
 
 class EhAyeWarning(UserWarning):
-    """Base warning class for ehAye Local."""
+    """Base warning class for ehAye."""
     
     def __init__(self, message: str, category: Optional[str] = None):
         super().__init__(message)
