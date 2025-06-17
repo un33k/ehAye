@@ -95,24 +95,6 @@ install_pyenv() {
         log_success "pyenv installed"
     fi
     
-    # Install pyenv-virtualenv for better virtual environment management
-    log_info "Checking for pyenv-virtualenv..."
-    if pyenv commands | grep -q virtualenv; then
-        log_success "pyenv-virtualenv already available"
-    else
-        log_info "Installing pyenv-virtualenv..."
-        brew install pyenv-virtualenv
-        
-        # Add virtualenv auto-activation to shell config
-        {
-            echo 'eval "$(pyenv virtualenv-init -)"'
-        } >> ~/.zprofile
-        
-        # Source for current session
-        eval "$(pyenv virtualenv-init -)" 2>/dev/null || true
-        
-        log_success "pyenv-virtualenv installed"
-    fi
 }
 
 # Install Ollama if not present
@@ -169,34 +151,25 @@ setup_python() {
     log_success "Python $PYTHON_VERSION set as local version"
 }
 
-# Create virtual environment using pyenv
+# Create virtual environment
 setup_venv() {
-    log_info "Setting up virtual environment with pyenv..."
-    
-    local venv_name="ehaye-local-$(basename "$PWD")"
+    log_info "Setting up virtual environment..."
     
     if [[ -d ".venv" ]]; then
         log_info "Virtual environment already exists"
     else
-        log_info "Creating virtual environment with pyenv: $venv_name"
+        log_info "Creating virtual environment..."
         
-        # Create virtual environment using pyenv-virtualenv if available
-        if command -v pyenv-virtualenv >/dev/null 2>&1 || pyenv commands | grep -q virtualenv; then
-            # Delete existing virtualenv if it exists
-            pyenv virtualenv-delete -f "$venv_name" 2>/dev/null || true
-            
-            # Create new virtualenv
-            pyenv virtualenv "$PYTHON_VERSION" "$venv_name"
-            
-            # Create .venv symlink pointing to the pyenv virtualenv
-            local venv_path="$(pyenv root)/versions/$venv_name"
-            ln -sf "$venv_path" .venv
-            
-            log_success "Created pyenv virtual environment: $venv_name"
-        else
-            log_warning "pyenv-virtualenv not available, using standard venv"
-            python -m venv .venv
-        fi
+        # Get the full path to the Python version we just installed
+        local python_path="$(pyenv which python)"
+        log_info "Using Python: $python_path"
+        
+        # Verify it's the correct version
+        local python_version_check="$($python_path --version)"
+        log_info "Python version: $python_version_check"
+        
+        # Create virtual environment with full path
+        "$python_path" -m venv .venv
     fi
     
     log_success "Virtual environment ready"
